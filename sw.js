@@ -1,4 +1,4 @@
-const CACHE='peymanyar-v3';
+const CACHE='peymanyar-v17';
 const ASSETS=['./','index.html','styles.css','command-engine.js','app.js','favicon.svg','manifest.webmanifest'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
