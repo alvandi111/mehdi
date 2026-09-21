@@ -233,3 +233,55 @@ window.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.getRegistrations().then(rows=>rows.forEach(r=>r.unregister())).catch(()=>{}));
 if('caches'in window)window.addEventListener('load',()=>caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).catch(()=>{}));
 render();
+
+// v21: universal smart entry — create missing entities and post the operation in one flow.
+function v21CleanName(value){return String(value||'').replace(/[،,.]/g,' ').replace(/\s+/g,' ').replace(/^(?:به نام|بنام|اسم)\s+/,'').trim()}
+function v21ProjectCandidate(text){
+ const existing=db.projects.find(x=>text.includes(x.name));if(existing)return existing.name;
+ const m=text.match(/پروژه(?:ی|‌ی)?\s+([^،,.]+?)(?=\s+(?:را|با|برای|به|از|بابت|مبلغ|به مبلغ|در تاریخ|امروز|ساختم|بساز|ایجاد|ثبت|پرداخت|واریز|خرید|گزارش|کارفرما|پیمانکار|فروشنده|جوشکار|بنا|برقکار|نگهبان|کارگر)\b|$)/);
+ return v21CleanName(m?.[1]||'')
+}
+function v21PartyCandidate(text,projectName=''){
+ const existing=db.people.find(x=>text.includes(x.name));if(existing)return existing.name;
+ const role='(?:پیمانکار|فروشنده|مسئول فروش|طرف حساب|جوشکار|بنا|برقکار|لوله کش|لوله‌کش|نگهبان|کارگر|نقاش|گچ کار|گچ‌کار|سرامیک کار|سرامیک‌کار)';
+ let m=text.match(new RegExp(`${role}(?: جدید)?(?: به نام| بنام| اسم)?\\s+([^،,.]+?)(?=\\s+(?:برای|در|پروژه|را|ثبت|بساز|ایجاد|اضافه|مبلغ|تومان|ریال|بابت)\\b|$)`));
+ if(!m)m=text.match(/(?:به|از)\s+([^،,.]+?)(?=\s+(?:برای|در)\s+پروژه|\s+(?:مبلغ|به مبلغ|بابت|تومان|ریال|پرداخت|واریز|دادم|گرفتم)\b|$)/);
+ const name=v21CleanName(m?.[1]||'');return name===projectName?'':name
+}
+function v21SmartPlan(text){
+ const raw=String(text||'').trim(),base=PeymanyarCommand.parse(raw,db,todayFa());
+ if(base.intent==='financial_query')return{...base,mode:'report'};
+ const project=base.project||v21ProjectCandidate(raw),party=base.party||(base.intent==='person_create'&&base.name?base.name:v21PartyCandidate(raw,project));
+ const amount=base.amount||PeymanyarCommand.amountOf(raw),date=base.date||todayFa(),role=inferPartyRole(raw);
+ const kind=/(?:دریافت|گرفتم|از کارفرما|واریز شد|واریزی)/.test(raw)?'income':'expense';
+ const category=costCategoryFromNote(raw)||(kind==='income'?'دریافت از کارفرما':party?'پرداخت پیمانکار':'هزینه عمومی');
+ let intent=base.intent;
+ if(intent==='unknown'&&/(?:پروژه).*(?:بساز|ایجاد|ثبت)/.test(raw))intent='project_create';
+ if(intent==='unknown'&&/(?:پیمانکار|فروشنده|کارگر|نیرو|جوشکار|بنا|برقکار|نگهبان).*(?:بساز|ایجاد|ثبت|اضافه)/.test(raw))intent='person_create';
+ if(intent==='unknown'&&amount&&/(?:هزینه|خرید|کرایه|پرداخت|واریز|دریافت|فاکتور|حقوق|دستمزد)/.test(raw))intent='transaction_create';
+ return{intent,label:base.label||'ثبت هوشمند',project:project||'',party:party||'',name:base.name||'',client:base.client||'',location:base.location||'',role,amount,date,kind,category,note:raw,workers:base.workers||0,weather:base.weather||'',text:raw,createProject:!!project&&!db.projects.some(x=>x.name===project),createParty:!!party&&!db.people.some(x=>x.name===party)}
+}
+function closeUniversalQuick(){closeModal()}
+function openQuick(){
+ closeModal();const context=page==='projectDetail'?db.projects.find(x=>Number(x.id)===Number(selectedProjectId))?.name||'':'';
+ document.body.insertAdjacentHTML('beforeend',`<div class="modal" id="modal" onclick="if(event.target===this)closeUniversalQuick()"><div class="dialog universal-dialog" role="dialog" aria-modal="true"><div class="dialog-head"><div><h2>دستیار ثبت هوشمند</h2><small>یک جمله کافی است؛ موارد جدید را همین‌جا می‌سازم.</small></div><button class="close" onclick="closeUniversalQuick()">×</button></div><div class="universal-context">${context?`در پروژه: <strong>${esc(context)}</strong>`:'پروژه، شخص، هزینه، دریافت، گزارش یا قرارداد را بگو یا بنویس.'}</div><div class="assistant-head compact"><button type="button" id="voiceBtn" class="mic-btn" onclick="startVoice()">🎙</button><div><strong>ورودی فارسی</strong><p id="voiceStatus" class="voice-status">در آیفون: دکمه را بزن، سپس میکروفن فارسی کیبورد را لمس کن.</p></div></div><textarea id="quickText" class="universal-text" rows="4" lang="fa-IR" dir="rtl" inputmode="text" autocorrect="on" spellcheck="true" placeholder="مثلاً: برای پروژه سپیدار بابت خرید ماسه دو میلیون تومان پرداخت کردم">${context?'برای پروژه '+esc(context)+' ':''}</textarea><div class="universal-actions"><button class="btn primary" onclick="parseQuick()">تحلیل و ادامه</button><button class="btn" onclick="closeUniversalQuick();openSmartUpload('${esc(context)}')">آپلود سند یا فاکتور</button></div><div class="assistant-examples"><button onclick="useExample('یک پروژه جدید به نام پروژه سپیدار بساز')">ساخت پروژه</button><button onclick="useExample('پیمانکار جدید به نام علی رضایی جوشکار برای پروژه سپیدار ثبت کن')">ساخت پیمانکار</button><button onclick="useExample('برای پروژه سپیدار بابت کرایه وانت دو میلیون تومان پرداخت کردم')">ثبت هزینه</button><button onclick="useExample('گزارش مالی پروژه سپیدار را نشان بده')">گزارش مالی</button></div><div id="parsedResult"></div></div></div>`);
+ setTimeout(()=>document.getElementById('quickText')?.focus(),80)
+}
+function v21PlanOptions(list,current){const names=[...new Set([current,...list].filter(Boolean))];return names.map(x=>`<option value="${esc(x)}" ${x===current?'selected':''}>${esc(x)}</option>`).join('')}
+function parseQuick(){
+ const input=document.getElementById('quickText'),box=document.getElementById('parsedResult');if(!input||!box)return;const text=input.value.trim();if(!text)return toast('ابتدا فرمان را بگو یا بنویس');
+ const plan=v21SmartPlan(text);window.v21Plan=plan;
+ if(plan.mode==='report'){const rows=reportRows({project:plan.project,person:plan.person,dateFrom:plan.dateFrom,dateTo:plan.dateTo}),sum=reportSummary(rows),a=contractAccount(plan.project,plan.person);activeReport={title:`گزارش مالی${plan.project?' پروژه '+plan.project:''}${plan.person?' - '+plan.person:''}`,rows,project:plan.project,person:plan.person,dateFrom:plan.dateFrom,dateTo:plan.dateTo};box.innerHTML=`<div class="parsed"><strong>${esc(activeReport.title)}</strong><div class="parsed-grid"><div><small>دریافتی</small>${money(sum.received)}</div><div><small>پرداخت</small>${money(sum.paid)}</div><div><small>مانده قرارداد</small>${money(a.remain)}</div></div><div class="report-actions"><button onclick="showReportModal()">نمایش ریز گزارش</button><button onclick="exportActiveCSV()">Excel</button><button onclick="printActiveReport()">PDF</button></div></div>`;return}
+ if(plan.intent==='unknown'){box.innerHTML='<div class="missing">فرمان را کامل‌تر بنویس؛ مثلاً «برای پروژه ... بابت خرید ماسه دو میلیون تومان پرداخت کردم».</div>';return}
+ const transaction=plan.intent==='transaction_create',person=plan.intent==='person_create',project=plan.intent==='project_create';
+ box.innerHTML=`<div class="parsed smart-plan"><div class="command-title"><strong>پیش‌نویس قابل ویرایش</strong><span class="command-badge">${esc(plan.label)}</span></div><div class="smart-plan-grid">${project?`${field('نام پروژه',`<input id="spProjectName" value="${esc(plan.name||plan.project)}">`)}${field('کارفرما',`<input id="spClient" value="${esc(plan.client)}" placeholder="اختیاری">`)}`:`${field('پروژه',`<input id="spProject" list="spProjects" value="${esc(plan.project)}"><datalist id="spProjects">${v21PlanOptions(db.projects.map(x=>x.name),plan.project)}</datalist>`)} `}${person||transaction?field(person?'نام شخص / پیمانکار':'طرف حساب (اختیاری)',`<input id="spParty" list="spPeople" value="${esc(person?plan.name||plan.party:plan.party)}"><datalist id="spPeople">${v21PlanOptions(db.people.map(x=>x.name),plan.party)}</datalist>`):''}${person?field('نقش / تخصص',`<input id="spRole" value="${esc(plan.role)}">`):''}${transaction?`${field('نوع',`<select id="spKind"><option value="expense" ${plan.kind==='expense'?'selected':''}>هزینه / پرداخت</option><option value="income" ${plan.kind==='income'?'selected':''}>دریافت</option></select>`)}${field('مبلغ تومان',`<input id="spAmount" inputmode="numeric" value="${plan.amount?fa(plan.amount):''}" oninput="showAmountWords(this,'spAmountWords')"><small id="spAmountWords" class="amount-words">${plan.amount?numberToPersianWords(plan.amount)+' تومان':''}</small>`)}${field('بابت / دسته',`<input id="spCategory" list="spCategories" value="${esc(plan.category)}"><datalist id="spCategories">${v21PlanOptions(db.categories,plan.category)}</datalist>`)}${field('تاریخ شمسی',`<input id="spDate" value="${esc(plan.date)}">`)}`:''}</div><div class="creation-summary">${plan.createProject?'＋ پروژه جدید ساخته می‌شود.<br>':''}${plan.createParty?'＋ طرف حساب جدید ساخته می‌شود.<br>':''}${transaction&&!plan.party?'این هزینه بدون اجبارِ انتخاب پیمانکار ثبت می‌شود.':''}</div><button class="btn primary full-action" onclick="confirmSmartPlan()">تأیید و انجام هم‌زمان</button></div>`;
+}
+function confirmSmartPlan(){
+ const p=window.v21Plan;if(!p)return;let project=v('spProject')||v('spProjectName')||p.project||p.name||'',party=v('spParty')||p.party||'',role=v('spRole')||p.role||'طرف حساب';
+ if(project&&!db.projects.some(x=>x.name===project))db.projects.push({id:uid(),name:project,client:v('spClient')||p.client||'ثبت نشده',location:p.location||'',budget:p.intent==='project_create'?p.amount||0:0,progress:0,status:'فعال',start:p.date||todayFa()});
+ if(p.intent==='project_create'){save();closeUniversalQuick();toast('پروژه جدید ساخته شد');render();return}
+ if(party&&!db.people.some(x=>x.name===party))db.people.push({id:uid(),name:party,role,phone:'',project});
+ if(p.intent==='person_create'){if(!party)return toast('نام شخص را وارد کن');save();closeUniversalQuick();toast('شخص جدید ساخته شد');render();return}
+ if(p.intent==='daily_create'){db.daily.unshift({id:uid(),project,date:p.date||todayFa(),workers:p.workers||0,weather:p.weather||'',text:p.text});save();closeUniversalQuick();toast('گزارش روزانه ثبت شد');render();return}
+ if(p.intent==='transaction_create'){const amount=n('spAmount')||p.amount,category=v('spCategory')||p.category,kind=v('spKind')||p.kind,date=v('spDate')||p.date;if(!project)return toast('نام پروژه را وارد کن');if(!amount)return toast('مبلغ را وارد کن');if(category&&!db.categories.includes(category))db.categories.push(category);db.transactions.push({id:uid(),project,party:party||category||'هزینه پروژه',role,amount,date,kind,category:category||'هزینه عمومی',note:p.note});save();closeUniversalQuick();toast('همه موارد ساخته و ثبت شد');render()}
+}
