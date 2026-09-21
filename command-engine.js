@@ -11,7 +11,8 @@
  function dateOf(text,fallback){const s=digits(text);const m=s.match(/(?:1[34]\d{2}[\/-]\d{1,2}[\/-]\d{1,2}|\d{1,2}[\/-]\d{1,2}[\/-]1[34]\d{2})/);if(!m)return fallback;const p=m[0].split(/[\/-]/);return p[0].length===4?`${p[0]}/${p[1].padStart(2,'0')}/${p[2].padStart(2,'0')}`:`${p[2]}/${p[1].padStart(2,'0')}/${p[0].padStart(2,'0')}`}
  const between=(s,re,stops)=>{const m=s.match(re);if(!m)return'';return clean(m[1].split(new RegExp(`\\s+(?:${stops.join('|')})\\s*`))[0]).replace(/^(?:به نام|بنام|اسم)\s+/,'').replace(/^(?:بساز|ایجاد(?: کن| شود)?|تعریف کن|ثبت کن)$/,'')};
  function entity(text,list){const source=clean(text),direct=list.find(x=>source.includes(clean(x.name)));if(direct)return direct;const sourceWords=new Set(source.split(' ').filter(w=>w.length>2));const scored=list.map(item=>({item,hits:clean(item.name).split(' ').filter(w=>sourceWords.has(w)).length})).filter(x=>x.hits);if(!scored.length)return null;scored.sort((a,b)=>b.hits-a.hits);return scored.length===1||scored[0].hits>scored[1].hits?scored[0].item:null}
- function parse(input,db,today){const text=clean(input),normalized=digits(text);const projects=db.projects||[],people=db.people||[];const project=entity(text,projects),person=entity(text,people);const date=dateOf(text,today);
+ function datesOf(text){const s=digits(text),matches=s.match(/(?:1[34]\d{2}[\/-]\d{1,2}[\/-]\d{1,2}|\d{1,2}[\/-]\d{1,2}[\/-]1[34]\d{2})/g)||[];return matches.map(raw=>{const p=raw.split(/[\/-]/);return p[0].length===4?`${p[0]}/${p[1].padStart(2,'0')}/${p[2].padStart(2,'0')}`:`${p[2]}/${p[1].padStart(2,'0')}/${p[0].padStart(2,'0')}`})}
+ function parse(input,db,today){const text=clean(input),normalized=digits(text);const projects=db.projects||[],people=db.people||[];const project=entity(text,projects);let person=entity(text,people);if(!person&&project){const byRole=people.filter(p=>(!p.project||p.project===project.name)&&p.role&&text.includes(clean(p.role)));if(byRole.length===1)person=byRole[0]}const date=dateOf(text,today);
   if(/(?:^|\s)(?:یک\s+)?پروژه(?:\s+جدید)?(?:\s+به نام)?[^.]{0,100}(?:بساز|ایجاد|تعریف)/.test(text)){
    const name=between(text,/(?:به نام|بنام|اسم)\s+(.+)/,['کارفرما','با کارفرما','در','واقع در','بودجه','مبلغ','شروع','بساز','ایجاد','تعریف','ثبت'])||between(text,/پروژه(?: جدید)?\s+(.+)/,['بساز','ایجاد کن','ایجاد شود','تعریف کن','ثبت کن','کارفرما','در','بودجه']);
    const client=between(text,/(?:کارفرما(?:ی آن)?|با کارفرما)\s+(.+)/,['در','واقع در','بودجه','مبلغ','شروع','بساز','ایجاد','تعریف','ثبت']);
@@ -31,7 +32,7 @@
    const workers=Number((normalized.match(/(\d+)\s*(?:نفر|کارگر|نیرو)/)||[])[1]||0),weather=(text.match(/(?:هوا|وضعیت هوا)\s+(آفتابی|بارانی|برفی|ابری|گرم|سرد)/)||[])[1]||'';
    return {intent:'daily_create',label:'ثبت گزارش روزانه',project:project?.name||'',date,workers,weather,text,missing:[!project&&'نام پروژه'].filter(Boolean)};
   }
-  if(/(?:چقدر|جمع|مجموع|مانده|گزارش مالی)/.test(text))return {intent:'financial_query',label:'گزارش مالی',person:person?.name||'',project:project?.name||'',missing:[]};
+  if(/(?:چقدر|جمع|مجموع|مانده|گزارش(?: مالی)?|حساب|ریز پرداخت)/.test(text)){const range=datesOf(text);return {intent:'financial_query',label:'گزارش مالی',person:person?.name||'',project:project?.name||'',role:person?.role||'',dateFrom:range[0]||'',dateTo:range[1]||range[0]||'',missing:[]}}
   if(/(?:پرداخت|واریز|هزینه|خرید|دریافت|گرفتم|دادم|خریدم|تنخواه)/.test(text)){
    const kind=/(?:دریافت|گرفتم|واریز شد|از کارفرما گرفتم)/.test(text)?'income':'expense';
    const contractorPayment=kind==='expense'&&(/(?:پرداخت|دادم|واریز)/.test(text)||!!person);
