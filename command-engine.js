@@ -36,9 +36,9 @@
   if(/(?:پرداخت|واریز|هزینه|خرید|دریافت|گرفتم|دادم|خریدم|تنخواه)/.test(text)){
    const kind=/(?:دریافت|گرفتم|واریز شد|از کارفرما گرفتم)/.test(text)?'income':'expense';
    const contractorPayment=kind==='expense'&&(/(?:پرداخت|دادم|واریز)/.test(text)||!!person);
-   const category=/(?:مصالح|خرید|فاکتور|خریدم)/.test(text)?'خرید مصالح':/تنخواه/.test(text)?'تنخواه':/حقوق|دستمزد/.test(text)?'حقوق و دستمزد':kind==='income'?'دریافت از کارفرما':contractorPayment?'پرداخت پیمانکار':'هزینه عمومی';
+   const category=/ماسه|سیمان|گچ|آجر|بلوک|بتن|سنگ|کاشی|سرامیک|مصالح/.test(text)?'خرید مصالح':/یراق|لولا|دستگیره|پیچ/.test(text)?'خرید یراق‌آلات':/ابزار|دریل|فرز|مته/.test(text)?'خرید ابزار':/وانت/.test(text)?'کرایه وانت':/اسنپ|تاکسی/.test(text)?'کرایه اسنپ':/جرثقیل/.test(text)?'کرایه جرثقیل':/نگهبان|نگهبانی/.test(text)?'هزینه نگهبانی':/جریمه|عوارض/.test(text)?'عوارض و جریمه':/(?:خرید|فاکتور|خریدم)/.test(text)?'خرید لوازم':/تنخواه/.test(text)?'تنخواه':/حقوق|دستمزد|کارگر|کارگری/.test(text)?'حقوق و دستمزد':kind==='income'?'دریافت از کارفرما':contractorPayment?'پرداخت پیمانکار':'هزینه عمومی';
    const amount=amountOf(text),candidate=between(text,/(?:به|از)\s+(.+)/,['برای پروژه','در پروژه','پروژه','مبلغ','به مبلغ','پرداخت','واریز','دادم','گرفتم','تومان','تومن','ریال'])||'';
-   return {intent:'transaction_create',label:kind==='income'?'ثبت دریافت':'ثبت پرداخت یا هزینه',project:project?.name||'',party:person?.name||candidate||(category==='هزینه عمومی'?'هزینه پروژه':''),amount,date,kind,category,note:text,missing:[!project&&'نام پروژه',!amount&&'مبلغ',contractorPayment&&!person&&'نام پیمانکار ثبت‌شده'].filter(Boolean)};
+   return {intent:'transaction_create',label:kind==='income'?'ثبت دریافت':'ثبت پرداخت یا هزینه',project:project?.name||'',party:person?.name||candidate||(category==='هزینه عمومی'?'هزینه پروژه':''),amount,date,kind,category,note:text,missing:[!project&&'نام پروژه',!amount&&'مبلغ'].filter(Boolean)};
   }
   return {intent:'unknown',label:'فرمان نامشخص',missing:['نوع عملیات']};
  }
