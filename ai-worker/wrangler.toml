@@ -1,0 +1,8 @@
+name = "peymanyar-ai"
+main = "worker.js"
+compatibility_date = "2026-09-22"
+
+[vars]
+ALLOWED_ORIGIN = "https://alvandi111.github.io"
+
+# Add GROQ_API_KEY as an encrypted Worker secret, never in this file.
