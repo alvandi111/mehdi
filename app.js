@@ -285,3 +285,34 @@ function confirmSmartPlan(){
  if(p.intent==='daily_create'){db.daily.unshift({id:uid(),project,date:p.date||todayFa(),workers:p.workers||0,weather:p.weather||'',text:p.text});save();closeUniversalQuick();toast('گزارش روزانه ثبت شد');render();return}
  if(p.intent==='transaction_create'){const amount=n('spAmount')||p.amount,category=v('spCategory')||p.category,kind=v('spKind')||p.kind,date=v('spDate')||p.date;if(!project)return toast('نام پروژه را وارد کن');if(!amount)return toast('مبلغ را وارد کن');if(category&&!db.categories.includes(category))db.categories.push(category);db.transactions.push({id:uid(),project,party:party||category||'هزینه پروژه',role,amount,date,kind,category:category||'هزینه عمومی',note:p.note});save();closeUniversalQuick();toast('همه موارد ساخته و ثبت شد');render()}
 }
+
+// v22: Persian-first receipt OCR and an honest iPhone voice path.
+function v22NormalizeOcr(value){
+ return String(value||'').normalize('NFKC').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[٬،]/g,',').replace(/[٫]/g,'.').replace(/[ـ]/g,'').replace(/(?<=\d)[\s,]+(?=\d)/g,'').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim()
+}
+function v22FieldLine(text,labels){
+ const lines=text.split(/\n/).map(x=>x.trim()).filter(Boolean),re=new RegExp(`(?:${labels.join('|')})\\s*[:：-]?\\s*(.*)`,'i');
+ for(let i=0;i<lines.length;i++){const m=lines[i].match(re);if(m){const value=(m[1]||lines[i+1]||'').trim();if(value&&!labels.some(x=>value===x))return value}}
+ return''
+}
+function v22Amount(text){
+ const candidates=[];
+ for(const m of text.matchAll(/(?:مبلغ|مبلغ تراکنش|جمع|برداشت|واریز|انتقال)?[^\d\n]{0,18}(\d{3,16})\s*(ریال|تومان|تومن)/g)){let value=Number(m[1]);if(!value)continue;if(m[2]==='ریال')value/=10;candidates.push(value)}
+ const words=text.match(/((?:صفر|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|یازده|دوازده|سیزده|چهارده|پانزده|شانزده|هفده|هجده|نوزده|بیست|سی|چهل|پنجاه|شصت|هفتاد|هشتاد|نود|صد|دویست|سیصد|چهارصد|پانصد|ششصد|هفتصد|هشتصد|نهصد|هزار|میلیون|میلیارد|و|\s)+)\s*(ریال|تومان|تومن)/);
+ if(words){let value=persianWordsNumber(words[1]);if(words[2]==='ریال')value/=10;if(value)candidates.push(value)}
+ return Math.round(candidates.find(x=>x>=1000)||candidates[0]||0)
+}
+parseBankReceipt=function(value){
+ const raw=v22NormalizeOcr(value),origin=v22FieldLine(raw,['مبدأ','مبدا','فرستنده','صاحب حساب مبدأ','از حساب']),destination=v22FieldLine(raw,['مقصد','گیرنده','صاحب حساب مقصد','به حساب']),note=v22FieldLine(raw,['شرح','بابت','یادداشت','توضیحات']),dateMatch=raw.match(/(1[34]\d{2})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/)||raw.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](1[34]\d{2})/),date=dateMatch?(dateMatch[1].length===4?`${dateMatch[1]}/${dateMatch[2].padStart(2,'0')}/${dateMatch[3].padStart(2,'0')}`:`${dateMatch[3]}/${dateMatch[2].padStart(2,'0')}/${dateMatch[1].padStart(2,'0')}`):'',amount=v22Amount(raw),category=costCategoryFromNote(note||raw),project=db.projects.find(x=>(note||raw).includes(x.name))?.name||'';
+ return{origin:origin.replace(/(?:شماره|حساب|کارت)\s*[:：-]?.*$/,'').trim(),destination:destination.replace(/(?:شماره|حساب|کارت)\s*[:：-]?.*$/,'').trim(),amount,date,note,category,project,time:'',tracking:''}
+}
+renderReceiptFields=function(fields){
+ const box=document.getElementById('smartOcrFields');if(!box)return;const items=[['مبدأ',fields.origin],['مقصد',fields.destination],['مبلغ',fields.amount?money(fields.amount):'تشخیص داده نشد'],['تاریخ',fields.date||'تشخیص داده نشد'],['شرح',fields.note||'تشخیص داده نشد']];box.innerHTML=`<strong>اطلاعات اصلی سند</strong><p class="ocr-hint">فقط موارد مهم استخراج شده‌اند؛ قبل از ثبت می‌توانی اصلاحشان کنی.</p><div>${items.map(([k,val])=>`<p><span>${k}</span><b>${esc(val||'—')}</b></p>`).join('')}</div>`
+}
+function v22OpenKeyboard(){const input=document.getElementById('quickText');if(!input)return;input.removeAttribute('readonly');input.focus({preventScroll:false});const end=input.value.length;try{input.setSelectionRange(end,end)}catch{}setVoiceState('کیبورد باز شد؛ میکروفن فارسی روی کیبورد آیفون را بزن.');toast('میکروفن فارسیِ خود کیبورد را بزن')}
+startVoice=async function(){
+ const input=document.getElementById('quickText');if(!input)return;const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!Recognition||/iPhone|iPad|iPod/i.test(navigator.userAgent||'')){v22OpenKeyboard();return}
+ if(voiceListening&&voiceRecognition){voiceRecognition.stop();return}
+ try{const recognition=new Recognition();voiceRecognition=recognition;recognition.lang='fa-IR';recognition.continuous=false;recognition.interimResults=true;let finalText='';recognition.onstart=()=>setVoiceState('در حال شنیدن… فارسی صحبت کن',true);recognition.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0].transcript;if(e.results[i].isFinal)finalText+=part+' ';else interim+=part}input.value=(finalText||interim).trim()};recognition.onerror=()=>{voiceRecognition=null;v22OpenKeyboard()};recognition.onend=()=>{voiceRecognition=null;setVoiceState(input.value.trim()?'صدا به متن تبدیل شد؛ حالا تحلیل را بزن.':'متنی دریافت نشد؛ از میکروفن فارسی کیبورد استفاده کن.')};recognition.start()}catch{v22OpenKeyboard()}
+}
