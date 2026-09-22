@@ -18,11 +18,11 @@
   };
   const ROLE_PERMISSIONS={
     owner:['*'],
-    project_manager:['project.view','project.edit','people.manage','daily.manage','document.manage','finance.view','finance.create','report.export','approval.manage'],
-    finance_manager:['project.view','finance.view','finance.create','finance.edit','document.manage','report.export','approval.finance'],
-    site_supervisor:['project.view','daily.manage','document.create','people.view','progress.update'],
-    observer:['project.view','daily.view','document.view','report.view'],
-    contractor:['project.view','daily.create','document.create','own.finance.view'],
+    project_manager:['project.view','project.edit','people.manage','daily.manage','document.manage','finance.view','finance.create','report.export','approval.manage','discussion.create','discussion.comment','discussion.moderate'],
+    finance_manager:['project.view','finance.view','finance.create','finance.edit','document.manage','report.export','approval.finance','discussion.create','discussion.comment'],
+    site_supervisor:['project.view','daily.manage','document.create','people.view','progress.update','discussion.create','discussion.comment','discussion.moderate'],
+    observer:['project.view','daily.view','document.view','report.view','discussion.comment'],
+    contractor:['project.view','daily.create','document.create','own.finance.view','discussion.create','discussion.comment'],
     custom:[]
   };
   const ROLE_NAMES={owner:'مالک سیستم',project_manager:'مدیر پروژه',finance_manager:'مدیر مالی',site_supervisor:'سرپرست کارگاه',observer:'ناظر',contractor:'پیمانکار',custom:'دسترسی سفارشی'};
