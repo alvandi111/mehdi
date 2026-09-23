@@ -30,12 +30,14 @@
   }
   if(/(?:(?:پیمانکار|استادکار|کارگر|نیرو|فرد).*(?:جدید|اضافه|تعریف|ثبت|بساز|ایجاد)|به عنوان\s+(?:پیمانکار|استادکار|کارگر|نیرو).*(?:ثبت|اضافه|تعریف|بساز|ایجاد))/.test(text)){
    const roles=['جوشکار','بنا','برقکار','لوله کش','لوله‌کش','نگهبان','کارگر','کابینت کار','کابینت‌کار','نقاش','گچ کار','گچ‌کار','سرامیک کار','سرامیک‌کار','تاسیسات کار','تأسیسات کار','تأسیسات‌کار'];
-   const roleMatch=text.match(/به عنوان\s+(.+?)(?=\s+(?:در|برای)\s+پروژه|\s+(?:ثبت|اضافه|تعریف|بساز|ایجاد)\b|$)/),role=clean(roleMatch?.[1]||'')||roles.find(r=>text.includes(r))||'';
-   let name=between(text,/(?:به نام|بنام|اسم)\s+(.+)/,[...roles,'برای پروژه','در پروژه','شماره','موبایل','اضافه','تعریف','ثبت','بساز','ایجاد']);
-   if(!name){const byTitle=text.match(/^(.*?)\s+به عنوان\s+/);name=clean(byTitle?.[1]||'').replace(/^(?:آقای|خانم|مهندس|استاد)\s+/,'')}
+   const specialty=text.match(/(?:با\s+تخصص|تخصص(?:ش|ِ او)?|به\s+عنوان)\s+(.+?)(?=\s+(?:به\s+(?:عنوان\s+)?پیمانکار(?:ان|ها|ا)?|در|برای)\s+پروژه|\s+به\s+پیمانکار(?:ان|ها|ا)?|\s+(?:ثبت|اضافه|تعریف|بساز|ایجاد)(?:\s|$)|$)/);
+   const role=clean(specialty?.[1]||'').replace(/^(?:پیمانکار|نیرو|کارگر)\s+/,'')||roles.find(r=>text.includes(r))||'';
+   let name=between(text,/(?:به نام|بنام|اسم)\s+(.+)/,[...roles,'با تخصص','تخصص','به عنوان','برای پروژه','در پروژه','شماره','موبایل','اضافه','تعریف','ثبت','بساز','ایجاد']);
+   if(!name){const byTitle=text.match(/^(.*?)\s+(?:با\s+تخصص|به\s+عنوان|به\s+پیمانکار(?:ان|ها|ا)?\s+اضافه)/);name=clean(byTitle?.[1]||'').replace(/^(?:آقای|خانم|مهندس|استاد)\s+/,'')}
    if(!name)name=between(text,/(?:پیمانکار|استادکار|کارگر|نیرو|فرد)(?: جدید)?\s+(.+)/,[...roles,'برای پروژه','در پروژه','شماره','موبایل','اضافه','تعریف','ثبت','بساز','ایجاد']);
+   name=clean(name).replace(/\s+(?:را|رو)$/,'');
    const phone=(normalized.match(/09\d{9}/)||[])[0]||'',duplicate=name&&people.some(p=>clean(p.name)===clean(name));
-   return {intent:'person_create',label:'تعریف پیمانکار یا نیرو',name,role,project:project?.name||'',phone,date,dateSource:dateMeta.source,missing:[!name&&'نام شخص',!role&&'تخصص',duplicate&&'این شخص قبلاً ثبت شده است'].filter(Boolean)};
+   return {intent:'person_create',label:'تعریف پیمانکار یا نیرو',name,role,project:project?.name||'',phone,date,dateSource:dateMeta.source,missing:[!name&&'نام شخص'].filter(Boolean),duplicate:!!duplicate};
   }
   if(/(?:گزارش روزانه|گزارش کارگاه|امروز).*(?:ثبت|بنویس|کار|انجام|شد)/.test(text)){
    const workers=Number((normalized.match(/(\d+)\s*(?:نفر|کارگر|نیرو)/)||[])[1]||0),weather=(text.match(/(?:هوا|وضعیت هوا)\s+(آفتابی|بارانی|برفی|ابری|گرم|سرد)/)||[])[1]||'';
