@@ -595,3 +595,5 @@ const v38SaveCompletedRoleBase=saveCompletedRole;
 saveCompletedRole=function(id){const role=v('roleCompletionInput');if(!role||['طرف حساب','تخصص ثبت نشده','نامشخص'].includes(role))return toast('تخصص واقعی را وارد کن تا این مورد تکمیل شود');return v38SaveCompletedRoleBase(id)};
 const v38FinanceBase=finance;
 finance=function(){return v38FinanceBase().replace('برای اصلاح هر مبلغ روی «اصلاح مبلغ» بزن','هر ثبت مالی را از همین صفحه باز کن و همه مشخصاتش را ویرایش کن')};
+// Render once after all page, row, and completion overrides have been installed.
+render();
