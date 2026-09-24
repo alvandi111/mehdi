@@ -235,6 +235,7 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
 if('caches'in window)window.addEventListener('load',()=>caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).catch(()=>{}));
 render();
 
+
 // v21: universal smart entry — create missing entities and post the operation in one flow.
 function v21CleanName(value){return String(value||'').replace(/[،,.]/g,' ').replace(/\s+/g,' ').replace(/^(?:به نام|بنام|اسم)\s+/,'').trim()}
 function v21ProjectCandidate(text){
@@ -605,3 +606,27 @@ const v41OpenRecordEditorBase=openRecordEditor;
 openRecordEditor=function(kind,id){releaseRecordPreview();v41OpenRecordEditorBase(kind,id);const modal=document.getElementById('recordEditor');if(!modal)return;const tx=kind==='transaction'?db.transactions.find(x=>Number(x.id)===Number(id)):db.transactions.find(x=>Number(x.documentId)===Number(id)),doc=kind==='document'?db.documents.find(x=>Number(x.id)===Number(id)):db.documents.find(x=>Number(x.id)===Number(tx?.documentId));const anchor=modal.querySelector('.form-grid');if(!anchor)return;if(doc){anchor.insertAdjacentHTML('beforebegin',`<section class="record-preview" id="recordPreview"><div class="record-preview-head"><strong>تصویر همین سند</strong><button type="button" class="btn" onclick="viewDocument(${Number(doc.id)})">بازکردن و بزرگ‌نمایی ↗</button></div><div class="record-preview-content" id="recordPreviewContent">در حال بارگذاری پیش‌نمایش…</div><small>${esc(doc.name||'فایل سند')}</small></section>`);loadRecordEditorPreview(Number(doc.id));recordPreviewObserver=new MutationObserver(()=>{if(!modal.isConnected)releaseRecordPreview()});recordPreviewObserver.observe(document.body,{childList:true,subtree:true})}else if(tx){anchor.insertAdjacentHTML('beforebegin',`<section class="record-preview"><strong>برای این ثبت مالی هنوز تصویر سند پیوست نشده است.</strong><button type="button" class="btn" onclick="document.getElementById('recordEditor').remove();attachTransactionDocument(${Number(tx.id)})">＋ افزودن تصویر سند</button></section>`)}};
 async function loadRecordEditorPreview(id){const box=document.getElementById('recordPreviewContent');if(!box)return;let item=memoryFiles.get(Number(id));if(!item)try{item=await readFile(Number(id))}catch{}if(!box.isConnected)return;if(!item?.blob){box.innerHTML=`<p>فایل تصویر روی این دستگاه پیدا نشد. دوباره همان فایل را انتخاب کن.</p><input type="file" accept="image/*,.pdf,application/pdf" onchange="reattachDocument(${Number(id)},this);document.getElementById('recordEditor')?.remove()">`;return}releaseRecordPreview();const modal=document.getElementById('recordEditor');if(modal){recordPreviewObserver=new MutationObserver(()=>{if(!modal.isConnected)releaseRecordPreview()});recordPreviewObserver.observe(document.body,{childList:true,subtree:true})}recordPreviewUrl=URL.createObjectURL(item.blob);const pdf=item.type==='application/pdf'||/\.pdf$/i.test(item.name||'');box.innerHTML=pdf?`<div class="record-pdf-preview">▤ PDF • ${esc(item.name||'سند')}</div>`:`<button type="button" class="record-preview-image" onclick="viewDocument(${Number(id)})" aria-label="بزرگ‌نمایی تصویر سند"><img src="${recordPreviewUrl}" alt="پیش‌نمایش سند ${esc(item.name||'')}"></button>`}
 render();
+
+// v42: preserve navigation through the completion inbox and its detail forms.
+let completionNavigation=null;
+const completionChildIds=['recordEditor','smartUploadModal','personIdentityModal','roleCompletion','projectCompletionEditor','dailyCompletionEditor','signedContractModal','contractBuilder'];
+function completionBack(){completionChildIds.forEach(id=>document.getElementById(id)?.remove());if(completionNavigation?.originPage){page=completionNavigation.originPage;selectedProjectId=completionNavigation.originProject;render()}openCompletionInbox()}
+function completionChildBack(){if(!completionNavigation)return;const modal=completionChildIds.map(id=>document.getElementById(id)).find(Boolean);const head=modal?.querySelector('.dialog-head');if(!head)return;completionNavigation.activeModal=modal.id;if(head.querySelector('.completion-back'))return;head.insertAdjacentHTML('afterbegin','<button type="button" class="btn completion-back" onclick="completionBack()">← بازگشت به فهرست</button>')}
+const v42InboxBase=openCompletionInbox;
+openCompletionInbox=function(){v42InboxBase();const head=document.querySelector('#completionInbox .dialog-head');if(head&&!head.querySelector('.completion-back'))head.insertAdjacentHTML('afterbegin','<button type="button" class="btn completion-back" onclick="document.getElementById(\'completionInbox\')?.remove();completionNavigation=null">← بازگشت</button>')};
+const v42ActionBase=completionAction;
+completionAction=function(id){const task=completionOpen().find(x=>String(x.id)===String(id));if(!task)return;completionNavigation={originPage:page,originProject:selectedProjectId,taskId:String(id)};v42ActionBase(id);if(task.type==='person.contract'){const back=document.querySelector('.back-btn');if(back)back.setAttribute('onclick','completionBack()')}else completionChildBack()};
+const v42CompletionEditorBase=openCompletionRecordEditor;
+openCompletionRecordEditor=function(kind,id){completionNavigation={originPage:page,originProject:selectedProjectId};v42CompletionEditorBase(kind,id);completionChildBack()};
+function completionSaved(modalId){if(completionNavigation?.activeModal===modalId&&!document.getElementById(modalId)){completionNavigation.activeModal=null;completionChildIds.forEach(id=>document.getElementById(id)?.remove());openCompletionInbox()}}
+const v42OpenUploadBase=openSmartUpload;
+openSmartUpload=function(...args){const result=v42OpenUploadBase(...args);if(completionNavigation)completionChildBack();return result};
+const v42OpenSignedBase=openSignedContractUpload;
+openSignedContractUpload=function(...args){const result=v42OpenSignedBase(...args);if(completionNavigation)completionChildBack();return result};
+const v42SaveRecordBase=saveRecordEditor;
+saveRecordEditor=function(...args){const result=v42SaveRecordBase(...args);completionSaved('recordEditor');return result};
+for(const name of ['savePersonIdentity','saveCompletedRole','saveProjectCompletion','saveDailyCompletion']){const base=globalThis[name];globalThis[name]=function(...args){const result=base(...args);completionSaved({savePersonIdentity:'personIdentityModal',saveCompletedRole:'roleCompletion',saveProjectCompletion:'projectCompletionEditor',saveDailyCompletion:'dailyCompletionEditor'}[name]);return result}}
+const v42SaveUploadBase=saveSmartDocument;
+saveSmartDocument=async function(...args){const result=await v42SaveUploadBase(...args);completionSaved('smartUploadModal');return result};
+const v42SaveSignedBase=saveSignedContract;
+saveSignedContract=async function(...args){const result=await v42SaveSignedBase(...args);completionSaved('signedContractModal');return result};
