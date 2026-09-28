@@ -44,7 +44,7 @@
    return {intent:'daily_create',label:'ثبت گزارش روزانه',project:project?.name||'',date,dateSource:dateMeta.source,workers,weather,text,missing:[!project&&'نام پروژه'].filter(Boolean)};
   }
   if(/(?:چقدر|جمع|مجموع|مانده|گزارش(?: مالی)?|ریز پرداخت|صورت حساب|حساب\s+(?:فلانی|پیمانکار|پروژه).*(?:نشان|بگو|می خواهم|میخوام))/.test(text)){const range=datesOf(text,today),month=monthRange(text,today);return {intent:'financial_query',label:'گزارش مالی',person:person?.name||'',project:project?.name||'',role:person?.role||'',dateFrom:month?.from||range[0]||'',dateTo:month?.to||range[1]||range[0]||'',periodLabel:month?.label||'',missing:[]}}
-  if(/(?:پرداخت|واریز|هزینه|خرید|دریافت|گرفتم|دادم|خریدم|تنخواه)/.test(text)){
+  if(/(?:پرداخت|واریز|هزینه|خرید|دریافت|گرفتم|دادم|خریدم|تنخواه)/.test(text)||(amountOf(text)>0&&/(?:ثبت کن|ثبت شود|وارد کن)/.test(text)&&!!project)){
    const kind=/(?:دریافت|گرفتم|واریز شد|از کارفرما گرفتم)/.test(text)?'income':'expense';
    const contractorPayment=kind==='expense'&&(/(?:پرداخت|دادم|واریز)/.test(text)||!!person);
    const category=/ماسه|سیمان|گچ|آجر|بلوک|بتن|سنگ|کاشی|سرامیک|مصالح/.test(text)?'خرید مصالح':/یراق|لولا|دستگیره|پیچ/.test(text)?'خرید یراق‌آلات':/ابزار|دریل|فرز|مته/.test(text)?'خرید ابزار':/وانت/.test(text)?'کرایه وانت':/اسنپ|تاکسی/.test(text)?'کرایه اسنپ':/جرثقیل/.test(text)?'کرایه جرثقیل':/نگهبان|نگهبانی/.test(text)?'هزینه نگهبانی':/جریمه|عوارض/.test(text)?'عوارض و جریمه':/(?:خرید|فاکتور|خریدم)/.test(text)?'خرید لوازم':/تنخواه/.test(text)?'تنخواه':/حقوق|دستمزد|کارگر|کارگری/.test(text)?'حقوق و دستمزد':kind==='income'?'دریافت از کارفرما':contractorPayment?'پرداخت پیمانکار':'هزینه عمومی';
