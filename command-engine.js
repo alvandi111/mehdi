@@ -1,6 +1,6 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.PeymanyarCommand=api})(typeof self!=='undefined'?self:this,function(){
  const faDigits='۰۱۲۳۴۵۶۷۸۹',arDigits='٠١٢٣٤٥٦٧٨٩';
- const clean=s=>String(s||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[‌]/g,' ').replace(/[؛،]/g,' ').replace(/\s+/g,' ').trim();
+ const clean=s=>String(s||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[‌]/g,' ').replace(/پروژه(?:\s*ی|ٔ|‌ی)(?=\s)/g,'پروژه').replace(/[؛،]/g,' ').replace(/\s+/g,' ').trim();
  const digits=s=>clean(s).replace(/[۰-۹]/g,d=>faDigits.indexOf(d)).replace(/[٠-٩]/g,d=>arDigits.indexOf(d)).replace(/[٬,]/g,'');
  const wordValues={صفر:0,یک:1,یه:1,دو:2,سه:3,چهار:4,پنج:5,شش:6,شیش:6,هفت:7,هشت:8,نه:9,ده:10,یازده:11,دوازده:12,سیزده:13,چهارده:14,پانزده:15,شانزده:16,هفده:17,هجده:18,نوزده:19,بیست:20,سی:30,چهل:40,پنجاه:50,شصت:60,هفتاد:70,هشتاد:80,نود:90,صد:100,یکصد:100,دویست:200,سیصد:300,چهارصد:400,پانصد:500,ششصد:600,هفتصد:700,هشتصد:800,نهصد:900};
  const scales={هزار:1e3,میلیون:1e6,میلیارد:1e9};
@@ -13,7 +13,7 @@
  const validDate=(year,month,day)=>{year=Number(year);month=Number(month);day=Number(day);const max=month<=6?31:month<=11?30:30;return year>=1300&&year<=1499&&month>=1&&month<=12&&day>=1&&day<=max?`${year}/${pad(month)}/${pad(day)}`:''};
  function persianToday(offset=0){try{const d=new Date();d.setDate(d.getDate()+offset);const parts=new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-latn',{year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d),get=t=>parts.find(x=>x.type===t)?.value;return validDate(get('year'),get('month'),get('day'))}catch{return''}}
  function shiftPersianDate(value,offset){const p=String(value||'').replace(/-/g,'/').split('/').map(Number);if(p.length!==3||!p.every(Number.isFinite))return persianToday(offset);let[year,month,day]=p,step=offset<0?-1:1;for(let i=0;i<Math.abs(offset);i++){day+=step;if(step<0&&day<1){month--;if(month<1){month=12;year--}day=month<=6?31:month<=11?30:29}else{const max=month<=6?31:month<=11?30:29;if(step>0&&day>max){day=1;month++;if(month>12){month=1;year++}}}}return validDate(year,month,day)}
- function relativeDate(text,fallback){const s=digits(text),base=digits(fallback||persianToday()).replace(/-/g,'/');if(/پریروز|پس پریروز/.test(s))return shiftPersianDate(base,-2);if(/دیروز/.test(s))return shiftPersianDate(base,-1);if(/امروز/.test(s))return shiftPersianDate(base,0);const m=s.match(/(\d+|یک|یه|دو|سه|چهار|پنج|شش|شیش|هفت|هشت|نه|ده)\s+روز\s+پیش/);if(m){const n=/^\d+$/.test(m[1])?Number(m[1]):wordsNumber([m[1]]);return shiftPersianDate(base,-(n||0))}return''}
+ function relativeDate(text,fallback){const s=digits(text),base=digits(fallback||persianToday()).replace(/-/g,'/');if(/پس\s*پریروز/.test(s))return shiftPersianDate(base,-3);if(/پریروز|پری روز/.test(s))return shiftPersianDate(base,-2);if(/دیروز/.test(s))return shiftPersianDate(base,-1);if(/امروز/.test(s))return shiftPersianDate(base,0);const m=s.match(/(\d+|یک|یه|دو|سه|چهار|پنج|شش|شیش|هفت|هشت|نه|ده)\s+روز\s+(?:پیش|قبل|گذشته)/);if(m){const n=/^\d+$/.test(m[1])?Number(m[1]):wordsNumber([m[1]]);return shiftPersianDate(base,-(n||0))}return''}
  function dateInfo(text,fallback){const s=digits(text),fallbackDate=digits(fallback||persianToday()).replace(/-/g,'/'),fallbackYear=Number((fallbackDate.match(/1[34]\d{2}/)||[])[0])||Number((persianToday().match(/1[34]\d{2}/)||[])[0]);let m=s.match(/(1[34]\d{2})[\/-](\d{1,2})[\/-](\d{1,2})/);if(m)return{date:validDate(m[1],m[2],m[3])||fallbackDate,source:'explicit-full',explicit:true};m=s.match(/(\d{1,2})[\/-](\d{1,2})[\/-](1[34]\d{2})/);if(m)return{date:validDate(m[3],m[2],m[1])||fallbackDate,source:'explicit-full',explicit:true};for(const[name,month]of Object.entries(monthNames)){if(!s.includes(name))continue;const year=Number((s.match(/1[34]\d{2}/)||[])[0])||fallbackYear;const around=s.match(new RegExp(`(?:روز\\s*)?(\\d{1,2})\\s*${name}|${name}\\s*(?:ماه\\s*)?(\\d{1,2})`));if(around){const day=Number(around[1]||around[2]);return{date:validDate(year,month,day)||fallbackDate,source:'explicit-named',explicit:true}}}m=s.match(/(?:تاریخ|مورخ|روز)\s*(\d{1,2})[\/-](\d{1,2})(?![\/-]\d)/);if(!m)m=s.match(/\b(\d{1,2})[\/-](\d{1,2})\b(?![\/-])/);if(m)return{date:validDate(fallbackYear,m[2],m[1])||fallbackDate,source:'explicit-short',explicit:true};const relative=relativeDate(s,fallbackDate);if(relative)return{date:relative,source:'relative',explicit:true};return{date:fallbackDate,source:'default',explicit:false}}
  function dateOf(text,fallback){return dateInfo(text,fallback).date}
  const between=(s,re,stops)=>{const m=s.match(re);if(!m)return'';return clean(m[1].split(new RegExp(`\\s+(?:${stops.join('|')})\\s*`))[0]).replace(/^(?:به نام|بنام|اسم)\s+/,'').replace(/^(?:بساز|ایجاد(?: کن| شود)?|تعریف کن|ثبت کن)$/,'')};
@@ -39,7 +39,7 @@
    const phone=(normalized.match(/09\d{9}/)||[])[0]||'',duplicate=name&&people.some(p=>clean(p.name)===clean(name));
    return {intent:'person_create',label:'تعریف پیمانکار یا نیرو',name,role,project:project?.name||'',phone,date,dateSource:dateMeta.source,missing:[!name&&'نام شخص'].filter(Boolean),duplicate:!!duplicate};
   }
-  if(/(?:گزارش روزانه|گزارش کارگاه|امروز).*(?:ثبت|بنویس|کار|انجام|شد)/.test(text)){
+  if(/(?:گزارش روزانه|گزارش کارگاه|امروز).*(?:ثبت|بنویس|کار|انجام|شد)/.test(text)&&(/گزارش روزانه|گزارش کارگاه/.test(text)||amountOf(text)===0)){
    const workers=Number((normalized.match(/(\d+)\s*(?:نفر|کارگر|نیرو)/)||[])[1]||0),weather=(text.match(/(?:هوا|وضعیت هوا)\s+(آفتابی|بارانی|برفی|ابری|گرم|سرد)/)||[])[1]||'';
    return {intent:'daily_create',label:'ثبت گزارش روزانه',project:project?.name||'',date,dateSource:dateMeta.source,workers,weather,text,missing:[!project&&'نام پروژه'].filter(Boolean)};
   }
@@ -56,3 +56,4 @@
  }
  return {parse,amountOf,dateOf,dateInfo,datesOf,monthRange,clean};
 });
+
