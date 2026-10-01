@@ -10,7 +10,13 @@
   // Parse the entire amount before currency, including mixed digits and words.
   const amountTokens=s.replace(/(\d)(?=[آ-ی])/g,'$1 ').split(/\s+/).map(w=>w.replace(/[.،؛؟!]$/,''));
   const currencyIndex=amountTokens.findIndex(w=>/^(?:تومان|تومن|ریال)$/.test(w));
-  if(currencyIndex>=0){let start=currencyIndex-1;while(start>=0&&numericWord(amountTokens[start]))start--;const total=wordsNumber(amountTokens.slice(start+1,currencyIndex));if(total!==null)return Math.round(amountTokens[currencyIndex]==='ریال'?total/10:total)}
+  if(currencyIndex>=0){let start=currencyIndex-1;while(start>=0&&numericWord(amountTokens[start]))start--;
+   // A broken word within the stated amount must never reduce it to a suffix.
+   const marker=amountTokens.slice(0,currencyIndex).lastIndexOf('مبلغ');
+   if(marker>=0&&amountTokens.slice(marker+1,currencyIndex).some(w=>!numericWord(w)))return 0;
+   if(start>0&&!Object.hasOwn(monthNames,amountTokens[start])&&numericWord(amountTokens[start-1]))return 0;
+   if(start>=0&&Object.hasOwn(scales,amountTokens[start+1])&&!['مبلغ','به','از','بابت','پرداخت','دریافت','واریز','حدود','تقریباً'].includes(amountTokens[start]))return 0;
+   const total=wordsNumber(amountTokens.slice(start+1,currencyIndex));if(total!==null)return Math.round(amountTokens[currencyIndex]==='ریال'?total/10:total)}
   let m=s.match(/(\d+(?:\.\d+)?)\s*(میلیارد|میلیون|هزار)?\s*(?:تومان|تومن|ریال)/);if(!m)m=s.match(/(\d+(?:\.\d+)?)\s*(میلیارد|میلیون|هزار)(?=\s|$)/);if(m){let n=Number(m[1]);if(m[2]==='هزار')n*=1e3;if(m[2]==='میلیون')n*=1e6;if(m[2]==='میلیارد')n*=1e9;if(/ریال/.test(m[0]))n/=10;return Math.round(n)}
   const tokens=s.split(' ');let end=tokens.findIndex(w=>/^(?:تومان|تومن|ریال)$/.test(w));if(end<0){for(let i=tokens.length-1;i>=0;i--)if(Object.hasOwn(scales,tokens[i])){end=i+1;break}}if(end<0)return 0;let start=end-1;while(start>=0&&numericWord(tokens[start]))start--;const value=wordsNumber(tokens.slice(start+1,end));if(value===null)return 0;return Math.round(/ریال/.test(tokens[end]||'')?value/10:value)}
  const monthNames={فروردین:1,اردیبهشت:2,خرداد:3,تیر:4,مرداد:5,شهریور:6,مهر:7,آبان:8,آذر:9,دی:10,بهمن:11,اسفند:12};
@@ -44,7 +50,7 @@
    const phone=(normalized.match(/09\d{9}/)||[])[0]||'',duplicate=name&&people.some(p=>clean(p.name)===clean(name));
    return {intent:'person_create',label:'تعریف پیمانکار یا نیرو',name,role,project:project?.name||'',phone,date,dateSource:dateMeta.source,missing:[!name&&'نام شخص'].filter(Boolean),duplicate:!!duplicate};
   }
-  if(/(?:گزارش روزانه|گزارش کارگاه|امروز).*(?:ثبت|بنویس|کار|انجام|شد)/.test(text)&&(/گزارش روزانه|گزارش کارگاه/.test(text)||amountOf(text)===0)){
+  if(/(?:گزارش روزانه|گزارش کارگاه|امروز).*(?:ثبت|بنویس|کار|انجام|شد)/.test(text)&&(/گزارش روزانه|گزارش کارگاه/.test(text)||(amountOf(text)===0&&!/پرداخت|واریز|دریافت|تومان|تومن|ریال/.test(text)))){
    const workers=Number((normalized.match(/(\d+)\s*(?:نفر|کارگر|نیرو)/)||[])[1]||0),weather=(text.match(/(?:هوا|وضعیت هوا)\s+(آفتابی|بارانی|برفی|ابری|گرم|سرد)/)||[])[1]||'';
    return {intent:'daily_create',label:'ثبت گزارش روزانه',project:project?.name||'',date,dateSource:dateMeta.source,workers,weather,text,missing:[!project&&'نام پروژه'].filter(Boolean)};
   }
