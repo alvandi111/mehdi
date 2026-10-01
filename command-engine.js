@@ -6,7 +6,12 @@
  const scales={هزار:1e3,میلیون:1e6,میلیارد:1e9};
  const numericWord=w=>w==='و'||Object.hasOwn(wordValues,w)||Object.hasOwn(scales,w)||/^\d+(?:\.\d+)?$/.test(w);
  function wordsNumber(words){let total=0,current=0,used=false;for(const word of words){if(word==='و')continue;if(/^\d+(?:\.\d+)?$/.test(word)){current+=Number(word);used=true;continue}if(Object.hasOwn(wordValues,word)){current+=wordValues[word];used=true;continue}if(Object.hasOwn(scales,word)){current=(current||1)*scales[word];total+=current;current=0;used=true;continue}return null}return used?total+current:null}
- function amountOf(text){const s=digits(text);let m=s.match(/(\d+(?:\.\d+)?)\s*(میلیارد|میلیون|هزار)?\s*(?:تومان|تومن|ریال)/);if(!m)m=s.match(/(\d+(?:\.\d+)?)\s*(میلیارد|میلیون|هزار)(?=\s|$)/);if(m){let n=Number(m[1]);if(m[2]==='هزار')n*=1e3;if(m[2]==='میلیون')n*=1e6;if(m[2]==='میلیارد')n*=1e9;if(/ریال/.test(m[0]))n/=10;return Math.round(n)}
+ function amountOf(text){const s=digits(text).replace(/(^|\s)پونصد(?=\s|$)/g,'$1پانصد');
+  // Parse the entire amount before currency, including mixed digits and words.
+  const amountTokens=s.replace(/(\d)(?=[آ-ی])/g,'$1 ').split(/\s+/).map(w=>w.replace(/[.،؛؟!]$/,''));
+  const currencyIndex=amountTokens.findIndex(w=>/^(?:تومان|تومن|ریال)$/.test(w));
+  if(currencyIndex>=0){let start=currencyIndex-1;while(start>=0&&numericWord(amountTokens[start]))start--;const total=wordsNumber(amountTokens.slice(start+1,currencyIndex));if(total!==null)return Math.round(amountTokens[currencyIndex]==='ریال'?total/10:total)}
+  let m=s.match(/(\d+(?:\.\d+)?)\s*(میلیارد|میلیون|هزار)?\s*(?:تومان|تومن|ریال)/);if(!m)m=s.match(/(\d+(?:\.\d+)?)\s*(میلیارد|میلیون|هزار)(?=\s|$)/);if(m){let n=Number(m[1]);if(m[2]==='هزار')n*=1e3;if(m[2]==='میلیون')n*=1e6;if(m[2]==='میلیارد')n*=1e9;if(/ریال/.test(m[0]))n/=10;return Math.round(n)}
   const tokens=s.split(' ');let end=tokens.findIndex(w=>/^(?:تومان|تومن|ریال)$/.test(w));if(end<0){for(let i=tokens.length-1;i>=0;i--)if(Object.hasOwn(scales,tokens[i])){end=i+1;break}}if(end<0)return 0;let start=end-1;while(start>=0&&numericWord(tokens[start]))start--;const value=wordsNumber(tokens.slice(start+1,end));if(value===null)return 0;return Math.round(/ریال/.test(tokens[end]||'')?value/10:value)}
  const monthNames={فروردین:1,اردیبهشت:2,خرداد:3,تیر:4,مرداد:5,شهریور:6,مهر:7,آبان:8,آذر:9,دی:10,بهمن:11,اسفند:12};
  const pad=n=>String(Number(n)||0).padStart(2,'0');
