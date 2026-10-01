@@ -1,0 +1,51 @@
+(function(){
+ 'use strict';
+ // Legacy recording remains in app.js, disconnected from this interface.
+ const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ let session=null;const panels=new WeakMap();let unique=0;
+ function focusVoiceFields(){const ids=['quickText','voiceBtn','voiceStatus','parsedResult'];document.querySelectorAll('[data-ld-original-id]').forEach(el=>{el.id=el.dataset.ldOriginalId;delete el.dataset.ldOriginalId});for(const id of ids){const all=[...document.querySelectorAll(`[id="${id}"]`)];for(const el of all.slice(0,-1)){el.dataset.ldOriginalId=id;el.id=`ld-hidden-${++unique}-${id}`}}}
+ const normalize=s=>String(s||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();
+ function current(s){return s.input.isConnected&&s.input===document.getElementById('quickText')}
+ function message(s,text,active=false){if(current(s))setVoiceState(text,active)}
+ function transcript(s){return [...s.results.values()].map(x=>x.text).filter(Boolean).join(' ').trim()}
+ function display(s){if(!current(s))return;const spoken=transcript(s);s.input.value=spoken?[s.baseText,spoken].filter(Boolean).join(' '):s.originalText;const text=s.panel.querySelector('.ld-text');text.textContent=spoken||'منتظر گفتار فارسی…';if(s.overlay)s.overlay.querySelector('.ld-live-text').textContent=spoken||'فارسی صحبت کن؛ متن گفتار اینجا نمایش داده می‌شود.';const label=s.panel.querySelector('.ld-label');label.textContent=[...s.results.values()].some(x=>!x.final)?'متن موقت؛ هنوز نهایی نشده':'متن تشخیص‌داده‌شده';}
+ function finish(s){if(session!==s)return;clearTimeout(s.limit);clearTimeout(s.startTimer);clearTimeout(s.finishTimer);session=null;closeOverlay(s);s.input.readOnly=false;if(!current(s))return;display(s);s.panel.querySelector('.ld-stop').disabled=true;const speech=transcript(s);if(speech){s.input.dispatchEvent(new Event('input',{bubbles:true}));message(s,s.error?'متن تا پیش از خطا حفظ شد؛ آن را بررسی کن و تحلیل فرمان را بزن.':'متن آماده شد؛ پیش‌نویس را پیش از ثبت بررسی کن.');if(!s.error)parseQuick()}else message(s,s.error||'گفتاری دریافت نشد؛ دوباره امتحان کن یا متن را با میکروفن کیبورد فارسی وارد کن.')}
+ function stop(s=session){if(!s||s.stopping)return;s.stopping=true;if(s.overlay){s.overlay.querySelector('.ld-big-stop').disabled=true;s.overlay.querySelector('.ld-overlay-status').textContent='در حال نهایی‌کردن متن…'}message(s,'در حال نهایی‌کردن متن…',true);try{s.recognition.stop()}catch{finish(s)}if(session===s)s.finishTimer=setTimeout(()=>{try{s.recognition.abort()}catch{}finish(s)},2500)}
+ function closeOverlay(s){
+  if(!s.overlay)return;s.overlay.remove();s.overlay=null;document.body.style.overflow=s.bodyOverflow;
+  if(s.previousFocus?.isConnected)s.previousFocus.focus({preventScroll:true});
+ }
+ function showOverlay(s){
+  s.previousFocus=document.activeElement;s.bodyOverflow=document.body.style.overflow;
+  const overlay=document.createElement('div');overlay.className='ld-overlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','گفتار فارسی');
+  overlay.innerHTML='<div class="ld-recording-card"><p class="ld-overlay-status" role="status">در حال آماده‌شدن میکروفن…</p><button type="button" class="ld-big-stop" aria-label="پایان گفتار"><span aria-hidden="true">🎙</span><strong>برای پایان بزن</strong></button><p class="ld-live-text" aria-live="polite">فارسی صحبت کن؛ متن گفتار اینجا نمایش داده می‌شود.</p><small>پس از پایان، متن را بررسی و سپس تأیید کن.</small></div>';
+  overlay.querySelector('.ld-big-stop').onclick=()=>stop(s);
+  overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();stop(s)}if(e.key==='Tab'){e.preventDefault();overlay.querySelector('.ld-big-stop').focus()}});
+  s.overlay=overlay;document.body.append(overlay);document.body.style.overflow='hidden';overlay.querySelector('.ld-big-stop').focus();
+ }
+ function mount(input){
+  let panel=panels.get(input);if(panel?.isConnected)return panel;panel=document.createElement('section');panel.id=`liveDictationPanel-${++unique}`;panels.set(input,panel);panel.className='ld-panel';
+  const heading=document.createElement('strong');heading.textContent='گفتار فارسی';
+  const hint=document.createElement('p');hint.textContent=Recognition?'میکروفن را بزن؛ برای پایان دکمه بزرگ را لمس کن و متن را بررسی کن.':'گفتار مرورگر در دسترس نیست؛ از میکروفن کیبورد فارسی برای ورود متن استفاده کن.';
+  const label=document.createElement('small');label.className='ld-label';label.textContent='آمادهٔ دریافت گفتار';
+  const text=document.createElement('p');text.className='ld-text';text.setAttribute('aria-live','polite');
+  const end=document.createElement('button');end.type='button';end.className='btn ld-stop';end.textContent='■ پایان گفتار';end.disabled=true;end.onclick=()=>stop();
+  const appendLabel=document.createElement('label');const append=document.createElement('input');append.type='checkbox';append.className='ld-append';appendLabel.append(append,document.createTextNode(' افزودن گفتار به متن موجود'));
+  panel.append(heading,hint,appendLabel,label,text,end);const status=document.getElementById('voiceStatus');if(status)(status.closest('.assistant-head')||status).insertAdjacentElement('afterend',panel);else input.insertAdjacentElement('beforebegin',panel);return panel;
+ }
+ startVoice=function(){
+  if(session){stop();return}if(pcmVoiceRecording||aiRecorder?.state==='recording')return toast('ابتدا ضبط قبلی را تمام کن');if(aiVoiceSending)return toast('تبدیل صدای قبلی هنوز تمام نشده است');const input=document.getElementById('quickText');if(!input)return;
+  const panel=mount(input);if(!Recognition){setVoiceState('گفتار مرورگر در دسترس نیست؛ میکروفن کیبورد فارسی را بزن.');input.focus();return}
+  const recognition=new Recognition(),s={recognition,input,panel,originalText:input.value,baseText:panel.querySelector('.ld-append').checked?input.value.trim():'',results:new Map(),error:'',stopping:false,limit:null,finishTimer:null};session=s;recognition.lang='fa-IR';recognition.continuous=true;recognition.interimResults=true;recognition.maxAlternatives=1;
+  recognition.onstart=()=>{clearTimeout(s.startTimer);if(session!==s||!current(s)){recognition.abort();return}s.overlay.querySelector('.ld-overlay-status').textContent='در حال شنیدن؛ فارسی صحبت کن…';message(s,'در حال شنیدن؛ فارسی صحبت کن…',true)};
+  recognition.onresult=event=>{if(session!==s||!current(s))return;for(const i of s.results.keys())if(i>=event.results.length)s.results.delete(i);for(let i=event.resultIndex;i<event.results.length;i++)s.results.set(i,{text:normalize(event.results[i][0]?.transcript),final:event.results[i].isFinal});display(s)};
+  recognition.onerror=event=>{if(session!==s)return;const errors={'not-allowed':'اجازهٔ میکروفن یا تشخیص گفتار داده نشده است.','service-not-allowed':'سرویس تشخیص گفتار در این مرورگر اجازهٔ اجرا ندارد.','language-not-supported':'تشخیص گفتار فارسی در این مرورگر پشتیبانی نمی‌شود.','network':'ارتباط سرویس تایپ صوتی برقرار نشد.','audio-capture':'میکروفن در دسترس نیست.','no-speech':'گفتاری تشخیص داده نشد.'};if(event.error==='aborted'&&s.stopping)return;s.error=errors[event.error]||'تایپ صوتی متوقف شد؛ متن را با میکروفن کیبورد فارسی وارد کن.';if(s.overlay)s.overlay.querySelector('.ld-overlay-status').textContent=s.error;message(s,s.error);s.finishTimer=setTimeout(()=>finish(s),1500)};
+  recognition.onend=()=>finish(s);
+  input.readOnly=true;panel.querySelector('.ld-stop').disabled=false;const preview=document.getElementById('parsedResult');if(preview)preview.replaceChildren();message(s,'در حال شروع تایپ صوتی فارسی…',true);
+  showOverlay(s);s.startTimer=setTimeout(()=>{if(session!==s)return;s.error='میکروفن شروع نشد؛ دسترسی میکروفن و اتصال اینترنت را بررسی کن.';try{recognition.abort()}catch{}finish(s)},12000);try{recognition.start();if(session===s)s.limit=setTimeout(()=>stop(s),90000)}catch(e){s.error='شروع تایپ صوتی ممکن نشد؛ از میکروفن کیبورد فارسی استفاده کن.';finish(s)}
+ };
+ const ConfirmBase=confirmSmartPlan;confirmSmartPlan=function(...args){if(session)return toast('ابتدا گفتار را تمام کن و پیش‌نویس نهایی را بررسی کن');return ConfirmBase(...args)};
+ const ParseBase=parseQuick;parseQuick=function(...args){if(session)return message(session,'برای تحلیل فرمان، ابتدا «پایان گفتار» را بزن.',true);return ParseBase(...args)};
+ new MutationObserver(()=>{focusVoiceFields();const input=document.getElementById('quickText');if(session&&!current(session)){const old=session;session=null;clearTimeout(old.limit);clearTimeout(old.startTimer);clearTimeout(old.finishTimer);try{old.recognition.abort()}catch{}old.input.readOnly=false;closeOverlay(old)}if(input)mount(input)}).observe(document.body,{childList:true,subtree:true});
+ const style=document.createElement('style');style.textContent='.ld-panel{background:#f0f6f2;border:1px solid #c7d8cd;border-radius:14px;padding:12px;margin:10px 0;min-width:0}.ld-panel p{font-size:12px;line-height:1.8;margin:6px 0}.ld-panel .ld-text{font-size:16px;white-space:pre-wrap;min-height:35px}.ld-actions{display:flex;flex-wrap:wrap;gap:8px}.ld-label{color:#547065}.ld-actions button{font-size:12px}.ld-overlay{position:fixed;inset:0;z-index:100000;background:#102b25f5;display:grid;place-items:center;padding:24px;padding-top:max(24px,env(safe-area-inset-top));padding-bottom:max(24px,env(safe-area-inset-bottom));color:#fff;overflow:auto;direction:rtl}.ld-recording-card{width:min(100%,440px);text-align:center}.ld-overlay-status{font-size:20px;line-height:1.8}.ld-big-stop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;width:min(65vw,260px);height:min(65vw,260px);margin:28px auto;border-radius:50%;border:4px solid #d7f1df;background:#b43939;color:white;box-shadow:0 0 0 14px #ffffff0d;font:inherit;cursor:pointer}.ld-big-stop span{font-size:64px}.ld-big-stop strong{font-size:20px}.ld-big-stop:focus-visible{outline:4px solid #f9d57c;outline-offset:8px}.ld-big-stop:disabled{opacity:.65;cursor:wait}.ld-live-text{font-size:20px;line-height:1.9;white-space:pre-wrap;overflow:auto;max-height:25dvh;overflow-wrap:anywhere}.ld-recording-card small{color:#d2dfd9}';document.head.append(style);focusVoiceFields();const initial=document.getElementById('quickText');if(initial)mount(initial);
+})();
