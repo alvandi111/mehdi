@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),names=require('../voice-names');
+const db={projects:[{name:'امامی'}],people:[{name:'اکبر ترکاشوند'},{name:'مهدی رجبی'}]};
+assert(names.suggestions('برای پروژه امامی به ترکاشون دو میلیون تومان پرداخت کردم',db).some(x=>x.heard==='ترکاشون'&&x.name==='ترکاشوند'));
+assert(names.suggestions('به ترک آشوند دو میلیون تومان پرداخت کردم',db).some(x=>x.name==='ترکاشوند'));
+assert.equal(names.suggestions('برای پروژه امامی به ترکاشوند دو میلیون تومان پرداخت کردم',db).length,0);
+assert.equal(names.suggestions('برای پروژه امامی دو میلیون تومان خرید مصالح پرداخت کردم',db).length,0);
+assert(names.suggestions('برای پروژه اممی یک میلیون تومان پرداخت کردم',db).every(x=>x.name!=='ترکاشوند'));
+const text='به ترکاشون ۲۰۰۰۰۰۰ تومان در ۱۴۰۵/۰۷/۰۹ پرداخت کردم',item=names.suggestions(text,db)[0];assert.equal(text.slice(0,item.start)+item.name+text.slice(item.end),'به ترکاشوند ۲۰۰۰۰۰۰ تومان در ۱۴۰۵/۰۷/۰۹ پرداخت کردم');
+const r={};names.configure(r,db);assert.equal(r.maxAlternatives,5);assert.equal('phrases'in r,false);
+console.log('PASS: known surname suggestions, split name, exact names unchanged, money/date preserved, no automatic substitution, unsupported hint API');

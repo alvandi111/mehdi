@@ -21,14 +21,14 @@
   s.overlay.querySelector('.voice-retry').hidden=!s.failed.length;
   if(s.failed.length){status(s,'ضبط متوقف شد؛ بخشی از صدا تبدیل نشد. صدا حفظ شده؛ دوباره تلاش کن.');return}
   display(s);if(!s.text){if(!s.error)status(s,'متنی دریافت نشد؛ صفحه را ببند و دوباره ضبط کن.');return}
-  s.input.value=[s.base,s.text].filter(Boolean).join(' ');dismiss(s);setVoiceState('ضبط پایان یافت؛ متن را بررسی کن و «تحلیل و ادامه» را بزن.');s.input.focus();
+  s.input.value=[s.base,s.text].filter(Boolean).join(' ');dismiss(s);setVoiceState('ضبط پایان یافت؛ متن را بررسی کن و «تحلیل و ادامه» را بزن.');s.input.focus();window.PeymanyarVoiceNames?.review(s.input,typeof db==='undefined'?{}:db);
   // No input event or automatic analysis: the user reviews first.
  }
  function queue(s,blob,part=++s.part){s.pending++;s.queue=s.queue.then(async()=>{try{if(!active(s))return;const text=await transcribeBulkPart(blob);if(!String(text||'').trim())throw new Error('متنی در این بخش تشخیص داده نشد');if(active(s)){s.parts.set(part,text);display(s)}}catch(error){if(active(s)){s.failed.push({blob,part});status(s,`تبدیل این بخش انجام نشد؛ صدا حفظ شده است. ${voiceServiceError(error)}`)}}finally{s.pending--;settled(s)}})}
  function flush(s){if(!s.chunks.length)return;const samples=mergePcmChunks(s.chunks);s.chunks=[];if(samples.length<s.rate*.25)return;let peak=0;for(let i=0;i<samples.length;i+=80)peak=Math.max(peak,Math.abs(samples[i]));if(peak<.00015)return;queue(s,pcmToWav(downsamplePcm(samples,s.rate),16000))}
  function useServer(s){if(!active(s)||s.mode==='server')return;clearTimeout(s.startTimer);if(!s.stream){s.error=true;status(s,'تشخیص گفتار در دسترس نیست؛ صفحه را مستقیم در Safari باز کن.');stop(s);return}s.mode='server';s.results.clear();s.committed='';s.recognitionPending=false;try{s.recognition?.abort()}catch{}status(s,s.recording?'در حال ضبط؛ متن هر چند ثانیه زیر دکمه آماده می‌شود.':'میکروفن خاموش شد؛ در حال تبدیل صدا…');flush(s);if(s.recording)s.flushTimer=setInterval(()=>flush(s),5000);else settled(s)}
  function recognize(s){
-  const r=new Recognition();s.recognition=r;r.lang='fa-IR';r.continuous=true;r.interimResults=true;
+  document.getElementById('voiceNameReview')?.remove();const r=new Recognition();s.recognition=r;r.lang='fa-IR';r.continuous=true;r.interimResults=true;window.PeymanyarVoiceNames?.configure(r,typeof db==='undefined'?{}:db);
   r.onstart=()=>{clearTimeout(s.startTimer);if(active(s)&&s.recording)status(s,'در حال ضبط؛ صحبت کن. برای پایان دکمه بزرگ را بزن.')};
   r.onresult=e=>{if(!active(s)||s.mode!=='browser')return;for(const i of s.results.keys())if(i>=e.results.length)s.results.delete(i);for(let i=e.resultIndex;i<e.results.length;i++)s.results.set(i,String(e.results[i][0]?.transcript||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک'));display(s)};
   r.onerror=e=>{if(!active(s)||s.mode!=='browser'||e.error==='aborted')return;if(e.error==='not-allowed'&&!s.stream){s.error=true;status(s,'اجازهٔ میکروفن داده نشد؛ دسترسی میکروفن را فعال کن.');stop(s)}else useServer(s)};
