@@ -73,3 +73,5 @@ body{background:#d9ddd9}.phone-shell{width:100%;max-width:430px;min-height:100dv
 .bulk-picker{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;min-width:180px;padding:10px;border:1px solid #bacbc2;border-radius:12px;background:#fff;box-shadow:0 4px 16px #17362f18}.bulk-picker .btn{text-align:right;min-height:44px}.bulk-picker small{white-space:normal}
 
 .merge-review{background:#fff0ee!important;color:#a21d16!important;border-color:#d92d20!important}.merge-review td{background:#fff0ee!important;color:#a21d16}.merge-review small{display:block;font-weight:700}.merge-review-item{padding:14px;border:1px solid #d92d20;border-radius:12px;margin:10px 0}
+
+.app-revision{display:inline-block;color:var(--muted);font-size:11px;font-weight:500;margin-inline-start:8px;white-space:nowrap}
