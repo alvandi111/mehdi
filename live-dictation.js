@@ -18,18 +18,18 @@
  function settled(s){
   if(!active(s)||s.recording||s.finalPending||!s.finalRequested)return;
   s.overlay.querySelector('.voice-retry').hidden=!s.failed.length;
-  if(s.failed.length){status(s,'ضبط متوقف شد؛ بخشی از صدا تبدیل نشد. صدا حفظ شده؛ دوباره تلاش کن.');return}
+  if(s.failed.length){status(s,s.finalError||'تبدیل صدا انجام نشد؛ صدا حفظ شده؛ دوباره تلاش کن.');return}
   display(s);if(!s.text){if(!s.error)status(s,'متنی دریافت نشد؛ صفحه را ببند و دوباره ضبط کن.');return}
   s.input.value=[s.base,s.text].filter(Boolean).join(' ');dismiss(s);setVoiceState('ضبط پایان یافت؛ متن را بررسی کن و «تحلیل و ادامه» را بزن.');s.input.focus();
   // No input event or automatic analysis: the user reviews first.
  }
  function queue(s,blob,final=false){
-  if(final){s.finalPending=true;s.finalRequested=true;s.failed=[]}else s.previewPending=true;
+  if(final){s.finalPending=true;s.finalRequested=true;s.failed=[];s.finalError=''}else s.previewPending=true;
   s.pending++;
   Promise.resolve().then(async()=>{
    try{if(!active(s))return;const text=await transcribeBulkPart(blob);if(!String(text||'').trim())throw new Error('متنی در صدا تشخیص داده نشد');if(!active(s))return;
     if(final){s.finalText=text;s.verified=true;display(s)}else if(s.recording){s.parts.clear();s.parts.set(1,text);display(s)}
-   }catch(error){if(active(s)){if(final){s.failed=[{blob}];status(s,`تبدیل صدای کامل انجام نشد؛ صدا حفظ شده است. ${voiceServiceError(error)}`)}else if(s.recording)status(s,'ضبط ادامه دارد؛ متن نهایی پس از پایان آماده می‌شود.')}
+   }catch(error){if(active(s)){if(final){s.failed=[{blob}];s.finalError=`تبدیل صدای کامل انجام نشد؛ صدا حفظ شده است. ${voiceServiceError(error)}`;status(s,s.finalError)}else if(s.recording)status(s,'ضبط ادامه دارد؛ متن نهایی پس از پایان آماده می‌شود.')}
    }finally{s.pending--;if(final){s.finalPending=false;settled(s)}else s.previewPending=false}
   });
  }
@@ -56,7 +56,7 @@
   try{
    const Engine=window.AudioContext||window.webkitAudioContext;
    if(Engine&&navigator.mediaDevices?.getUserMedia){const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});if(!active(s)||!s.recording){stream.getTracks().forEach(t=>t.stop());return}s.stream=stream;s.context=new Engine();if(s.context.state==='suspended')await s.context.resume();if(!active(s)||!s.recording){release(s);return}s.rate=s.context.sampleRate;s.source=s.context.createMediaStreamSource(stream);s.processor=s.context.createScriptProcessor(4096,1,1);s.processor.onaudioprocess=e=>{e.outputBuffer.getChannelData(0).fill(0);if(s.recording)s.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)))};s.source.connect(s.processor);s.processor.connect(s.context.destination)}else throw new Error('microphone_unavailable');
-   if(!active(s)||!s.recording)return;overlay.dataset.state='recording';overlay.querySelector('.voice-heading').textContent='در حال ضبط صدا';const started=Date.now();s.clock=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);overlay.querySelector('.voice-clock').textContent=fa(`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`)},1000);s.limit=setTimeout(()=>stop(s),90000);
+   if(!active(s)||!s.recording)return;overlay.dataset.state='recording';overlay.querySelector('.voice-heading').textContent='در حال ضبط صدا';const started=Date.now();s.clock=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);overlay.querySelector('.voice-clock').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`.replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d])},1000);s.limit=setTimeout(()=>stop(s),90000);
    {status(s,'در حال ضبط؛ متن اولیه زیر دکمه می‌آید؛ متن نهایی پس از پایان آماده می‌شود.');s.flushTimer=setInterval(()=>flush(s),8000)}
   }catch(error){if(active(s)){s.error=true;status(s,error?.name==='NotAllowedError'?'اجازهٔ میکروفن داده نشد؛ دسترسی میکروفن را فعال کن.':'میکروفن باز نشد؛ این صفحه را مستقیم در Safari باز کن.');stop(s)}}
  };
