@@ -64,3 +64,5 @@ body{background:#d9ddd9}.phone-shell{width:100%;max-width:430px;min-height:100dv
 .voice-launch-icon svg{width:46px;height:46px}.voice-launch strong{font-size:26px;font-weight:900;line-height:1.5}.voice-launch-description{font-size:15px;line-height:1.7;color:#ecf4ef}
 .voice-entry-hint{margin:5px 0 16px;font-size:12px;line-height:1.8;color:#c9dbd1}.voice-entry .voice-type{display:flex;justify-content:center;gap:12px;width:100%;padding:11px 16px;border:1px solid #ffffff30;background:#ffffff0b;color:#f1f5ef;border-radius:13px;font-size:14px}
 .voice-entry .voice-launch:focus-visible,.voice-entry .voice-type:focus-visible{outline:3px solid #ffe2a6;outline-offset:3px}.voice-entry .voice-launch:active .voice-launch-icon{transform:scale(.96)}
+
+.project-hero .entity-rename{margin-top:10px;background:#ffffff18;border-color:#ffffff55;color:#fff;font-size:13px}.record-delete-visible{display:inline-block;border:1px solid #e4b9b3;background:#fff8f6;color:#a33328;border-radius:9px;padding:7px 10px;margin:6px 7px 3px 0;font:inherit;font-size:12px}.document-card>.record-delete-visible{margin-top:12px}#entityNameEditor .dialog p{color:var(--muted);line-height:1.8}
