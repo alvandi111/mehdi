@@ -2,7 +2,8 @@
  'use strict';
  let session = null, serial = 0;
  window.peymanyarFrozenVoice = Object.freeze({assistantPanel, startVoice});
- assistantPanel = () => `<section class="card voice-entry"><button class="btn primary" onclick="openQuick();startVoice()">🎙 ضبط فرمان فارسی</button><button class="btn" onclick="openQuick()">نوشتن فرمان</button></section>`;
+ assistantPanel = () => `<section class="card voice-entry" aria-label="ثبت با صدا"><span class="voice-entry-label">دستیار ثبت فارسی</span><button type="button" class="btn primary voice-launch" aria-label="ضبط فرمان فارسی" onclick="openQuick();startVoice()"><span class="voice-launch-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><rect x="17" y="5" width="14" height="25" rx="7" stroke="currentColor" stroke-width="3"/><path d="M11 23v2a13 13 0 0 0 26 0v-2M24 38v6M17 44h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span><strong>بگو، ثبت کن</strong><span class="voice-launch-description">هزینه، دریافت یا گزارش کارگاه را بگو</span></button><p class="voice-entry-hint">صدایت به متن تبدیل می‌شود؛ ثبت با تأیید تو انجام می‌شود.</p><button type="button" class="btn voice-type" onclick="openQuick()">نوشتن فرمان <span aria-hidden="true">←</span></button></section>`;
+ const dashboardBase=dashboard;dashboard=function(){const panel=assistantPanel();return dashboardBase().replace(panel,'').replace(/(<main class="(?:phone-content|content)">)/,`$1${panel}`)};
  function fields() {
   document.querySelectorAll('[data-ld-original-id]').forEach(el => {el.id=el.dataset.ldOriginalId;delete el.dataset.ldOriginalId});
   for(const id of ['quickText','voiceBtn','voiceStatus','parsedResult']) {
