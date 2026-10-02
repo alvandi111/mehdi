@@ -20,7 +20,7 @@
   s.overlay.querySelector('.voice-retry').hidden=!s.failed.length;
   if(s.failed.length){status(s,'ضبط متوقف شد؛ بخشی از صدا تبدیل نشد. صدا حفظ شده؛ دوباره تلاش کن.');return}
   display(s);if(!s.text){if(!s.error)status(s,'متنی دریافت نشد؛ صفحه را ببند و دوباره ضبط کن.');return}
-  s.input.value=[s.base,s.text].filter(Boolean).join(' ');dismiss(s);setVoiceState('ضبط پایان یافت؛ متن را بررسی کن و «تحلیل و ادامه» را بزن.');s.input.focus();window.PeymanyarVoiceNames?.review(s.input,typeof db==='undefined'?{}:db);
+  s.input.value=[s.base,s.text].filter(Boolean).join(' ');dismiss(s);setVoiceState('ضبط پایان یافت؛ متن را بررسی کن و «تحلیل و ادامه» را بزن.');s.input.focus();
   // No input event or automatic analysis: the user reviews first.
  }
  function queue(s,blob,final=false){
