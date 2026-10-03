@@ -65,6 +65,7 @@ assert.equal(w.document.querySelectorAll('.phone-nav button').length,6);
 client.auth.getSession=async()=>({data:{session:null}});
 await w.PeymanyarCloud.boot();
 assert.equal(w.document.querySelector('[data-cloud-login]').textContent,'ورود / Sign In');
+w.eval("go('settings')");assert.ok(w.document.getElementById('cloudUploadButton'));assert.ok(w.document.getElementById('cloudUploadButton').textContent.includes('این دستگاه'));assert.equal(await w.cloudUploadPersonal(),false);assert.ok(w.document.getElementById('cloudLoginModal'));w.document.getElementById('cloudLoginModal').remove();w.eval("go('dashboard')");
 w.document.querySelector('[data-cloud-login]').click();
 assert.ok(w.document.querySelector('#cloudLoginModal #cloudEmail'));
 assert.ok(w.document.getElementById('cloudPassword'));
