@@ -1,6 +1,6 @@
 const fs=require('fs'),assert=require('node:assert/strict');const {webcrypto}=require('crypto');const {JSDOM}=require('../../voice-test-runtime/node_modules/jsdom');const {indexedDB}=require('/tmp/peymanyar-cloud-build/node_modules/fake-indexeddb');const w=new JSDOM('<div id="app"></div><div id="toast"></div>',{url:'https://alvandi111.github.io/mehdi/',runScripts:'dangerously'}).window;Object.defineProperty(w,'crypto',{value:{subtle:{digest:(alg,bytes)=>webcrypto.subtle.digest(alg,Buffer.from(new Uint8Array(bytes)))}}});const nativeClone=structuredClone;global.structuredClone=function clone(v){if(v instanceof w.Blob)return v;if(Array.isArray(v))return v.map(clone);if(v&&v.constructor?.name==='Object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clone(x)]));return nativeClone(v)};w.indexedDB=indexedDB;w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.scrollTo=()=>{};w.confirm=()=>true;w.alert=()=>{};w.matchMedia=()=>({matches:false,addEventListener(){}});
 for(const f of ['workspace-engine.js','collaboration-engine.js','command-engine.js','contract-engine.js','receipt-date.js','app.js','portable-backup.js']){const s=w.document.createElement('script');s.textContent=fs.readFileSync(f,'utf8');w.document.body.appendChild(s)}
-let uid='user-a',snapshot=null,rpcError=null,rpcCalls=0,queryError=null;const blobs=new Map();const client={auth:{getSession:async()=>({data:{session:{user:{id:uid}}}}),getUser:async()=>({data:{user:{id:uid,email:uid+'@example.com'}}}),onAuthStateChange(){},signOut:async()=>({}),signInWithOtp:async()=>({}),verifyOtp:async()=>({})},from(){return {select(){return this},eq(){return this},maybeSingle:async()=>({data:snapshot?structuredClone(snapshot):null,error:queryError})}},rpc:async(name,arg)=>{rpcCalls++;assert.equal(arg.expected_user_id,uid);if(rpcError)return {error:rpcError};if((snapshot?.revision||0)!==arg.expected_revision)return {error:{message:'revision_conflict'}};snapshot={revision:arg.expected_revision+1,payload:structuredClone(arg.new_payload),files:arg.new_files};return {data:snapshot.revision}},storage:{from(){return {upload:async(p,b)=>{blobs.set(p,b);return {}},download:async(p)=>({data:blobs.get(p)})}}}};w.PeymanyarSupabase={createClient:()=>client};const s=w.document.createElement('script');s.textContent=fs.readFileSync('cloud-account.js','utf8');w.document.body.appendChild(s);
+let uid='user-a',snapshot=null,rpcError=null,rpcCalls=0,queryError=null;const blobs=new Map();const client={auth:{getSession:async()=>({data:{session:{user:{id:uid}}}}),getUser:async()=>({data:{user:{id:uid,email:uid+'@example.com'}}}),onAuthStateChange(fn){client.auth.callback=fn},signOut:async()=>({}),signInWithOtp:async()=>({}),verifyOtp:async()=>({})},from(){return {select(){return this},eq(){return this},maybeSingle:async()=>({data:snapshot?structuredClone(snapshot):null,error:queryError})}},rpc:async(name,arg)=>{rpcCalls++;assert.equal(arg.expected_user_id,uid);if(rpcError)return {error:rpcError};if((snapshot?.revision||0)!==arg.expected_revision)return {error:{message:'revision_conflict'}};snapshot={revision:arg.expected_revision+1,payload:structuredClone(arg.new_payload),files:arg.new_files};return {data:snapshot.revision}},storage:{from(){return {upload:async(p,b)=>{blobs.set(p,b);return {}},download:async(p)=>({data:blobs.get(p)})}}}};w.PeymanyarSupabase={createClient:()=>client};const s=w.document.createElement('script');s.textContent=fs.readFileSync('cloud-account.js','utf8');w.document.body.appendChild(s);
 (async()=>{
 await w.PeymanyarCloud.boot();w.PeymanyarCloud.stop();
 assert.equal(await w.PeymanyarCloud.sync(),false);
@@ -95,6 +95,25 @@ client.auth.signInWithPassword=async arg=>{passwordAttempt=arg;client.auth.getSe
 await w.cloudPasswordLogin();assert.equal(passwordAttempt.email,'test@example.com');assert.equal(w.document.getElementById('cloudLoginModal'),null);
 
 w.eval("go('settings')");assert.ok(w.document.getElementById('cloudAccount'));
+// Persisted session remains an account in the UI when online verification is unavailable.
+const originalGetUser=client.auth.getUser;
+client.auth.getSession=async()=>({data:{session:{user:{id:uid,email:'session@example.com'}}}});
+client.auth.getUser=async()=>({error:{message:'Failed to fetch'}});
+await w.PeymanyarCloud.boot();w.eval("go('dashboard')");
+assert.equal(w.document.querySelector('[data-cloud-login]').textContent,'حساب من');
+w.document.querySelector('[data-cloud-login]').click();assert.ok(w.document.getElementById('cloudAccountModal').textContent.includes('session@example.com'));
+w.openCloudOTP(true);assert.equal(w.document.getElementById('cloudLoginModal'),null);
+client.auth.getUser=originalGetUser;
+client.auth.callback('TOKEN_REFRESHED',{user:{id:uid,email:'refreshed@example.com'}});
+assert.equal(w.document.querySelector('[data-cloud-login]').textContent,'حساب من');
+client.auth.signOut=async()=>({error:{message:'network error'}});
+assert.equal(await w.cloudSignOut(),false);assert.equal(w.document.querySelector('[data-cloud-login]').textContent,'حساب من');
+client.auth.signOut=async()=>{client.auth.callback('SIGNED_OUT',null);client.auth.getSession=async()=>({data:{session:null}});return {}};
+const localCopy=w.localStorage.getItem(key),bindingCopy=w.localStorage.getItem(key+':cloud-binding');
+await w.cloudSwitchAccount();assert.ok(w.document.getElementById('cloudLoginModal'));assert.equal(w.localStorage.getItem(key),localCopy);assert.equal(w.localStorage.getItem(key+':cloud-binding'),bindingCopy);
+assert.equal(w.document.querySelector('[data-cloud-login]').textContent,'ورود / Sign In');
+w.document.getElementById('cloudLoginModal').remove();
+
 console.log('PASS dashboard Sign In, email verification and invalid-code handling, Settings tab, successful login closes modal; bidirectional sync, deferred editing, concurrent conflict preservation, legacy JSONB migration, async restore guard, desktop routes and retained mobile navigation');
 w.PeymanyarCloud.stop();w.close();
 })().catch(e=>{console.error(e);w.PeymanyarCloud.stop();w.close();process.exitCode=1});
