@@ -35,6 +35,20 @@ w.confirm=()=>true;assert.equal(await w.PeymanyarCloud.pull(),true);
 w.localStorage.removeItem(base);
 snapshot.payload=Object.fromEntries(Object.entries(snapshot.payload).reverse());
 assert.equal(await w.PeymanyarCloud.sync(),true);assert.ok(w.localStorage.getItem(base));
+// Fresh desktop receives cloud records automatically on login, no confirmation.
+const bindingKey=key+':cloud-binding';
+w.localStorage.removeItem(bindingKey);w.localStorage.removeItem(base);w.localStorage.removeItem(key+':cloud-owner');
+w.eval("db.projects=[];db.people=[];db.transactions=[];db.contracts=[];db.daily=[];db.documents=[];save()");
+w.confirm=()=>{throw Error('fresh device should fetch automatically')};
+assert.equal(await w.PeymanyarCloud.sync(),true);
+assert.equal(w.eval('db.projects[0].name'),'تغییر دستگاه دوم');
+assert.equal(w.PeymanyarCloud.getBinding().revision,snapshot.revision);
+// Unbound local records are not overwritten by a different server copy.
+w.localStorage.removeItem(bindingKey);w.localStorage.removeItem(base);
+w.eval('db.projects[0].name="موجود روی گوشی";save()');
+assert.equal(await w.PeymanyarCloud.sync(),false);
+assert.equal(w.eval('db.projects[0].name'),'موجود روی گوشی');
+w.confirm=()=>true;await w.PeymanyarCloud.pull();
 // Guard rechecks during async file restoration, before committing local records.
 const original=w.eval('JSON.stringify(db)');
 let checks=0;
