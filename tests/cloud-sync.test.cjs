@@ -5,6 +5,13 @@ let uid='user-a',snapshot=null,rpcError=null,rpcCalls=0,queryError=null;const bl
 await w.PeymanyarCloud.boot();w.PeymanyarCloud.stop();
 assert.equal(await w.PeymanyarCloud.sync(),false);
 w.eval('db.projects=[{id:1,name:"پروژه گوشی"}];save()');
+// Existing empty cloud seed must not prevent explicit phone migration.
+const emptyPayload=JSON.parse(w.eval('JSON.stringify(db)'));emptyPayload.projects=[];
+snapshot={revision:1,payload:emptyPayload,files:[]};
+assert.equal(await w.PeymanyarCloud.pull(),false);assert.equal(w.eval('db.projects.length'),1);
+const unboundLocal=JSON.parse(w.eval('JSON.stringify(db)'));snapshot.payload=unboundLocal; snapshot.payload.projects[0].name='سرور دارای اطلاعات';
+assert.equal(await w.PeymanyarCloud.push(true),false);assert.equal(rpcCalls,0);
+snapshot.payload=emptyPayload;w.confirm=()=>false;assert.equal(await w.PeymanyarCloud.push(true),false);assert.equal(rpcCalls,0);w.confirm=()=>true;
 assert.equal(await w.PeymanyarCloud.push(true),true);
 const key=w.eval('STORAGE'),base=key+':cloud-baseline';
 // A desktop edit arriving at the server is received without a confirmation.
