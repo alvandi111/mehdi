@@ -15,7 +15,7 @@
  function status(s,text){if(active(s))s.overlay.querySelector('.voice-caption').textContent=text}
  function display(s){if(!active(s))return;s.text=(s.verified?s.finalText:s.mode==='server'?[...s.parts].sort((a,b)=>a[0]-b[0]).map(x=>x[1]).join(' '):[s.committed,...s.results.values()].filter(Boolean).join(' ')).trim();s.overlay.querySelector('.voice-live-text').textContent=s.text||'صحبت کن؛ متن گفتارت اینجا نمایش داده می‌شود.'}
  function release(s){if(s.released)return;s.released=true;clearInterval(s.clock);clearInterval(s.flushTimer);clearTimeout(s.limit);clearTimeout(s.startTimer);if(s.processor)s.processor.onaudioprocess=null;try{s.source?.disconnect();s.processor?.disconnect()}catch{}s.stream?.getTracks().forEach(t=>t.stop());if(s.context?.state!=='closed')s.context?.close().catch(()=>{})}
- function dismiss(s){release(s);clearTimeout(s.endTimer);try{s.recognition?.abort()}catch{}s.input.readOnly=false;s.overlay.remove();document.body.style.overflow=s.oldOverflow;if(session===s)session=null;if(s.previousFocus?.isConnected)s.previousFocus.focus()}
+ function dismiss(s){s.cancelWait?.();release(s);clearTimeout(s.endTimer);try{s.recognition?.abort()}catch{}s.input.readOnly=false;s.overlay.remove();document.body.style.overflow=s.oldOverflow;if(session===s)session=null;if(s.previousFocus?.isConnected)s.previousFocus.focus()}
  function settled(s){
   if(!active(s)||s.recording||s.finalPending||!s.finalRequested)return;
   s.overlay.querySelector('.voice-retry').hidden=!s.failed.length;
@@ -28,7 +28,14 @@
   if(final){s.finalPending=true;s.finalRequested=true;s.failed=[];s.finalError=''}else s.previewPending=true;
   s.pending++;
   Promise.resolve().then(async()=>{
-   try{if(!active(s))return;const text=await transcribeBulkPart(blob);if(!String(text||'').trim())throw new Error('متنی در صدا تشخیص داده نشد');if(!active(s))return;
+   try{if(!active(s))return;let text;
+    for(let attempt=0;attempt<2;attempt++){
+     try{text=await transcribeBulkPart(blob);break}catch(error){
+      if(attempt||!/429|rate_limit|quota/i.test(String(error?.message||error)))throw error;
+      const retry=await new Promise(resolve=>{let remaining=30;const timer=setInterval(()=>{if(!active(s)){clearInterval(timer);resolve(false);return}remaining--;status(s,`سرویس صدا محدود شده؛ صدایت در این صفحه محفوظ است. تلاش خودکار تا ${remaining} ثانیه دیگر…`);if(!remaining){clearInterval(timer);s.cancelWait=null;resolve(true)}},1000);s.cancelWait=()=>{clearInterval(timer);resolve(false)};status(s,'سرویس صدا محدود شده؛ ۳۰ ثانیه منتظر می‌مانیم و یک بار دوباره تلاش می‌کنیم.');});
+      if(!retry||!active(s))return;
+     }
+    }if(!String(text||'').trim())throw new Error('متنی در صدا تشخیص داده نشد');if(!active(s))return;
     if(final){s.finalText=text;s.verified=true;display(s)}else if(s.recording){s.parts.clear();s.parts.set(1,text);display(s)}
    }catch(error){if(active(s)){if(final){s.failed=[{blob}];s.finalError=`تبدیل صدای کامل انجام نشد؛ صدا حفظ شده است. ${voiceServiceError(error)}`;status(s,s.finalError)}else if(s.recording)status(s,'ضبط ادامه دارد؛ متن نهایی پس از پایان آماده می‌شود.')}
    }finally{s.pending--;if(final){s.finalPending=false;settled(s)}else s.previewPending=false}
@@ -58,7 +65,7 @@
    const Engine=window.AudioContext||window.webkitAudioContext;
    if(Engine&&navigator.mediaDevices?.getUserMedia){const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});if(!active(s)||!s.recording){stream.getTracks().forEach(t=>t.stop());return}s.stream=stream;s.context=new Engine();if(s.context.state==='suspended')await s.context.resume();if(!active(s)||!s.recording){release(s);return}s.rate=s.context.sampleRate;s.source=s.context.createMediaStreamSource(stream);s.processor=s.context.createScriptProcessor(4096,1,1);s.processor.onaudioprocess=e=>{e.outputBuffer.getChannelData(0).fill(0);if(s.recording)s.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)))};s.source.connect(s.processor);s.processor.connect(s.context.destination)}else throw new Error('microphone_unavailable');
    if(!active(s)||!s.recording)return;overlay.dataset.state='recording';overlay.querySelector('.voice-heading').textContent='در حال ضبط صدا';const started=Date.now();s.clock=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);overlay.querySelector('.voice-clock').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`.replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d])},1000);s.limit=setTimeout(()=>stop(s),90000);
-   {status(s,'در حال ضبط؛ متن اولیه زیر دکمه می‌آید؛ متن نهایی پس از پایان آماده می‌شود.');s.flushTimer=setInterval(()=>flush(s),8000)}
+   status(s,'در حال ضبط؛ پس از زدن دکمهٔ پایان، کل صدا یک‌جا به متن تبدیل می‌شود.');
   }catch(error){if(active(s)){s.error=true;status(s,error?.name==='NotAllowedError'?'اجازهٔ میکروفن داده نشد؛ دسترسی میکروفن را فعال کن.':'میکروفن باز نشد؛ این صفحه را مستقیم در Safari باز کن.');stop(s)}}
  };
  const parseBase=parseQuick;parseQuick=function(...args){if(session)return status(session,'ابتدا ضبط را متوقف کن و متن را بررسی کن.');return parseBase(...args)};
