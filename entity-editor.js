@@ -12,7 +12,7 @@
   if(name===entity.name)return true;
   const oldNames=names(entity),matches=value=>oldNames.some(old=>sameName(old,value));
   if(kind==='person'){
-   for(const key of ['transactions','contracts','documents'])for(const row of db[key]||[]){
+   for(const key of ['transactions','contracts','documents','workStatements'])for(const row of db[key]||[]){
     const linked=row.personId??row.contractorId;
     const linkedExists=linked!=null&&db.people.some(p=>String(p.id)===String(linked));
     if(linkedExists&&String(linked)!==String(id))continue;
