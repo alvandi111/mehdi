@@ -1,0 +1,17 @@
+const fs=require('fs'),path=require('path'),assert=require('node:assert/strict');
+const {JSDOM}=require('../../voice-test-runtime/node_modules/jsdom');
+const w=new JSDOM('<div id="app"></div><div id="toast"></div>',{url:'https://alvandi111.github.io/mehdi/',runScripts:'dangerously'}).window;
+w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.scrollTo=()=>{};w.confirm=()=>true;w.alert=()=>{};w.matchMedia=()=>({matches:false,addEventListener(){}});
+for(const f of ['workspace-engine.js','collaboration-engine.js','command-engine.js','contract-engine.js','receipt-date.js','app.js','entity-editor.js','financial-ledger.js','persian-calendar.js','entity-delete.js','work-statements.js','quick-payment.js']){const s=w.document.createElement('script');s.textContent=fs.readFileSync(path.join(__dirname,'..',f),'utf8');w.document.body.append(s)}
+let db=w.eval('db');const d=w.document,set=(id,value)=>d.getElementById(id).value=value;
+Object.assign(db,{projects:[{id:1,name:'آرشام',status:'فعال'}],people:[{id:10,name:'اوسا محمد بنا',role:'بنا',project:'آرشام'}],transactions:[],documents:[],contracts:[],workStatements:[],completionTasks:[]});
+const phrase='مبلغ صد میلیون تومان به اوسا محمد بنا به صورت چک در پروژه آرشام داده شد.';
+let c=w.PeymanyarCommand.parse(phrase,db,'1405/07/14');assert.equal(c.intent,'transaction_create');assert.equal(c.project,'آرشام');assert.equal(c.party,'اوسا محمد بنا');assert.equal(c.amount,100000000);assert.equal(c.kind,'expense');assert.equal(c.paymentMethod,'cheque');
+w.openQuick();set('quickText',phrase);w.parseQuick();assert.equal(d.getElementById('spProject').value,'آرشام');assert.equal(d.getElementById('spMethod').value,'cheque');assert.equal(w.n('spAmount'),100000000);w.confirmSmartPlan();assert.equal(db.transactions.length,0);
+set('spChequeNumber','۱۲۳');set('spChequeDue','1405/08/01');w.confirmSmartPlan();assert.equal(db.transactions.length,1);let t=db.transactions[0];assert.equal(t.project,'آرشام');assert.equal(t.personId,10);assert.equal(t.amount,100000000);assert.equal(t.chequeStatus,'delivered');assert.equal(t.chequeNumber,'123');assert.equal(w.reportSummary(w.reportRows({project:'آرشام'})).paid,100000000);assert.equal(w.PeymanyarStatements.account(10,'آرشام').pending,100000000);w.setContractorCheque(t.id,'cleared');db=w.eval('db');assert.equal(db.transactions.length,1);assert.equal(w.PeymanyarStatements.account(10,'آرشام').paid,100000000);
+w.openQuick();set('quickText',phrase);w.parseQuick();set('spChequeNumber','123');set('spChequeDue','1405/08/01');w.confirmSmartPlan();assert.equal(db.transactions.length,1);
+w.openQuick();set('quickText','دو میلیون تومان به اوسا محمد بنا در پروژه آرشام پرداخت کردم');w.parseQuick();w.confirmSmartPlan();assert.equal(db.transactions.length,2);assert.equal(db.transactions[1].amount,2000000);assert.equal(db.transactions[1].kind,'expense');assert.equal(db.transactions[1].paymentMethod,'bank');
+c=w.PeymanyarCommand.parse('مبلغ سه میلیون تومان به یاسر بنا به صورت چک در پروژه جدید داده شد',db,'1405/07/14');assert.equal(c.project,'جدید');assert.equal(c.party,'یاسر بنا');assert.equal(c.amount,3000000);
+c=w.PeymanyarCommand.parse('صد میلیون تومان از کارفرما برای پروژه آرشام دریافت کردم',db,'1405/07/14');assert.equal(c.kind,'income');
+assert.equal(w.PeymanyarCommand.parse('پروژه آرشام داده شد',db,'1405/07/14').intent,'unknown');
+console.log('PASS: exact voice sentence → editable cheque preview → one financial row; missing/duplicate cheque blocked; clearing does not double count; bank/income and unknown-party regressions');w.close();
