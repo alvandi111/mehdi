@@ -19,7 +19,18 @@
    const number=String(v('spChequeNumber')).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\s/g,''),due=PeymanyarStatements.date(v('spChequeDue')),bank=v('spChequeBank');
    if(!v('spProject')||!v('spParty')||!(n('spAmount')>0)||!PeymanyarStatements.date(v('spDate'))||!number||!due)return toast('طرف حساب، پروژه، مبلغ، تاریخ، شماره و سررسید چک را تکمیل کن');
    if(db.transactions.some(t=>t.paymentMethod==='cheque'&&String(t.chequeNumber)===number&&t.chequeBank===bank&&t.chequeStatus!=='cancelled'))return toast('این چک قبلاً ثبت شده است؛ همان چک را ویرایش کن');
-   Object.assign(p,{chequeNumber:number,chequeBank:bank,chequeDue:due});document.getElementById('spCategory').value='پرداخت با چک';
+   const project=v('spProject'),party=v('spParty'),amount=n('spAmount'),date=v('spDate'),note=p.note;
+   let person=knownPerson(party);
+   if(!person||!db.projects.some(x=>x.name===project)){
+    // Reuse the existing entity registration; do not create a financial row here.
+    p.intent='person_create';p.name=party;confirmBase();person=knownPerson(party);
+   }
+   if(!person)return toast('طرف حساب را بررسی کن');
+   closeUniversalQuick();openContractorPayment(person.id,project);
+   for(const [id,value] of Object.entries({cpAmount:amount,cpDate:date,cpMethod:'cheque',cpNumber:number,cpBank:bank,cpDue:due,cpNote:note}))document.getElementById(id).value=value;
+   const count=db.transactions.length;saveContractorPayment();
+   if(db.transactions.length===count+1)finishQuickRegistration('پرداخت با چک ثبت شد؛ در گزارش مالی و حساب پیمانکار منظور شد');
+   return;
   }
   return confirmBase(...args);
  };
