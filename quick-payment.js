@@ -1,5 +1,16 @@
 // Editable financial preview shared by typed and transcribed commands.
 (function(){
+ const key=value=>PeymanyarCommand.clean(value).replace(/آ/g,'ا').replace(/\s+/g,' ').trim();
+ const personKey=value=>key(value).replace(/^(?:(?:اقای|خانم|مهندس|استاد|اوستا|اوسا)\s+)+/,'').replace(/\s+(?:بنا|بنایی|پیمانکار)$/,'').trim();
+ function resolve(value,rows,person=false){
+  const k=key(value);if(!k)return {value:'',ambiguous:false};
+  const aliases=rows.filter(r=>(r.aliases||[]).some(a=>key(a)===k));
+  if(aliases.length===1)return {value:aliases[0].name,ambiguous:false};
+  const exact=rows.filter(r=>key(r.name)===k);if(exact.length===1)return {value:exact[0].name,ambiguous:false};
+  const matches=person?rows.filter(r=>personKey(r.name)===personKey(value)):exact;
+  return matches.length===1?{value:matches[0].name,ambiguous:false}:{value,ambiguous:matches.length>1||aliases.length>1};
+ }
+ function targets(plan){const project=resolve(plan.project,db.projects),party=resolve(plan.party,db.people,true);return {...plan,project:project.value,party:party.value,ambiguousTarget:project.ambiguous||party.ambiguous};}
  const parseBase=parseQuick;
  parseQuick=function(...args){
   if(document.getElementById('bulkCashModal'))return parseBase(...args);
@@ -7,12 +18,15 @@
   if(!input||!box)return parseBase(...args);
   const command=PeymanyarCommand.parse(input.value.trim(),db,todayFa());
   if(command.intent!=='transaction_create')return parseBase(...args);
-  const plan={...v21SmartPlan(input.value.trim()),...command,quickPayment:true};window.v21Plan=plan;window.parsedCommand=command;
+  const plan=targets({...v21SmartPlan(input.value.trim()),...command,quickPayment:true});window.v21Plan=plan;window.parsedCommand=command;
   box.innerHTML=`<div class="parsed smart-plan"><div class="command-title"><strong>پیش‌نویس پرداخت / دریافت</strong></div><div class="smart-plan-grid">${field('پروژه',`<input id="spProject" value="${esc(plan.project)}" list="spProjects"><datalist id="spProjects">${v21PlanOptions(db.projects.map(x=>x.name),plan.project)}</datalist>`)}${field('طرف حساب',`<input id="spParty" value="${esc(plan.party)}" list="spPeople"><datalist id="spPeople">${v21PlanOptions(db.people.map(x=>x.name),plan.party)}</datalist>`)}${field('نوع ثبت',`<select id="spKind"><option value="expense" ${plan.kind==='expense'?'selected':''}>پرداخت</option><option value="income" ${plan.kind==='income'?'selected':''}>دریافت</option></select>`)}${field('مبلغ (تومان)',`<input id="spAmount" value="${esc(fa(plan.amount))}" inputmode="decimal" oninput="formatStatementPrice(this)">`)}${field('بابت',`<input id="spCategory" value="${esc(plan.category)}">`)}${field('تاریخ',`<input id="spDate" value="${esc(plan.date)}" data-persian-calendar="1">`)}${field('روش پرداخت',`<select id="spMethod" onchange="document.getElementById('spCheque').hidden=this.value!=='cheque'"><option value="bank" ${plan.paymentMethod==='bank'?'selected':''}>واریز بانکی</option><option value="cash" ${plan.paymentMethod==='cash'?'selected':''}>نقد</option><option value="cheque" ${plan.paymentMethod==='cheque'?'selected':''}>چک تحویلی</option></select>`)}</div><div id="spCheque" ${plan.paymentMethod==='cheque'?'':'hidden'}><p>شماره و سررسید چک را تکمیل کن؛ مبلغ فقط یک بار در حساب منظور می‌شود.</p><div class="smart-plan-grid">${field('شماره / شناسه چک','<input id="spChequeNumber">')}${field('بانک','<input id="spChequeBank">')}${field('سررسید شمسی','<input id="spChequeDue" data-persian-calendar="1">')}</div></div><p>${plan.dateSource==='default'?'تاریخی گفته نشد؛ امروز انتخاب شده است. ':''}اطلاعات را بررسی کن؛ موارد جدید پس از تأیید ساخته می‌شوند.</p><button class="btn primary full-action" onclick="confirmSmartPlan()">تأیید و ثبت مالی</button></div>`;
  };
  const confirmBase=confirmSmartPlan;
  confirmSmartPlan=function(...args){
   const p=window.v21Plan;if(!p?.quickPayment)return confirmBase(...args);
+  const target=targets({project:v('spProject'),party:v('spParty')});
+  if(target.ambiguousTarget)return toast('چند حساب مشابه وجود دارد؛ نام کامل شخص و پروژه را از فهرست انتخاب کن');
+  document.getElementById('spProject').value=target.project;document.getElementById('spParty').value=target.party;
   p.paymentMethod=v('spMethod');
   if(p.paymentMethod==='cheque'){
    if(v('spKind')!=='expense')return toast('این فرم برای چک تحویلی است؛ نوع ثبت را پرداخت انتخاب کن');
