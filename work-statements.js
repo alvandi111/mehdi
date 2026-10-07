@@ -76,11 +76,11 @@
  };
  window.saveContractorPayment=function(){
   const old=editingPayment==null?null:db.transactions.find(t=>eq(t.id,editingPayment)&&t.kind==='expense');if(editingPayment!=null&&!old)return toast('این پرداخت دیگر وجود ندارد؛ پنجره را دوباره باز کن');
-  const locked=old?.paymentMethod==='cheque'&&['cleared','cancelled'].includes(old.chequeStatus),p=db.people.find(p=>eq(p.id,locked?old.personId||knownPerson(old.party)?.id:v('cpPerson'))),project=locked?old.project:v('cpProject'),amount=locked?old.amount:number(v('cpAmount')),d=locked?old.date:date(v('cpDate')),method=locked?'cheque':v('cpMethod'),cheque=method==='cheque',numberKey=digits(v('cpNumber')).replace(/\s/g,''),bank=v('cpBank');
+  const locked=old?.paymentMethod==='cheque'&&['cleared','cancelled'].includes(old.chequeStatus),p=db.people.find(p=>eq(p.id,locked?(old.personId??old.contractorId??knownPerson(old.party)?.id):v('cpPerson'))),project=locked?old.project:v('cpProject'),amount=locked?old.amount:number(v('cpAmount')),d=locked?old.date:date(v('cpDate')),method=locked?'cheque':v('cpMethod'),cheque=method==='cheque',numberKey=digits(v('cpNumber')).replace(/\s/g,''),bank=v('cpBank');
   if(!p||(!locked&&!db.projects.some(p=>p.name===project))||!d||!Number.isSafeInteger(amount)||(!locked&&amount<=0)||!['bank','cash','cheque'].includes(method))return toast('پیمانکار، پروژه، تاریخ و مبلغ معتبر را وارد کن');
   if(cheque&&(!numberKey||!date(v('cpDue'))))return toast('شماره چک و سررسید معتبر را وارد کن');
   if(cheque&&db.transactions.some(t=>!eq(t.id,old?.id)&&t.paymentMethod==='cheque'&&digits(t.chequeNumber).replace(/\s/g,'')===numberKey&&t.chequeBank===bank&&t.chequeStatus!=='cancelled'))return toast('این چک قبلاً ثبت شده است؛ وضعیت همان چک را تغییر بده');
-  const record={...old,id:old?.id??uid(),personId:p.id,party:p.name,project,amount,date:d,kind:'expense',category:cheque?'پرداخت با چک':old?.paymentMethod==='cheque'?'پرداخت پیمانکار':old?.category||'پرداخت پیمانکار',note:v('cpNote'),paymentMethod:method,status:'کامل'};
+  const record={...old,id:old?.id??uid(),personId:p.id,contractorId:p.id,party:p.name,project,projectId:db.projects.find(p=>p.name===project)?.id??old?.projectId??null,amount,date:d,kind:'expense',category:cheque?'پرداخت با چک':old?.paymentMethod==='cheque'?'پرداخت پیمانکار':old?.category||'پرداخت پیمانکار',note:v('cpNote'),paymentMethod:method,status:'کامل'};
   if(cheque)Object.assign(record,{chequeNumber:numberKey,chequeBank:bank,chequeDue:date(v('cpDue')),chequeStatus:old?.chequeStatus||'delivered'});else for(const key of ['chequeNumber','chequeBank','chequeDue','chequeStatus','chequeFaceAmount','chequeCancelledDate','chequeClearedDate'])delete record[key];
   if(old&&!confirm('ویرایش روی همان پرداخت ذخیره شود؟ مبلغ جدید جایگزین مبلغ قبلی می‌شود و سند پیوست حفظ می‌شود.'))return;
   if(!commit(draft=>{if(old){const i=draft.transactions.findIndex(t=>eq(t.id,old.id));if(i<0)throw Error('missing payment');draft.transactions[i]=record}else draft.transactions.push(record)}))return;
@@ -99,3 +99,4 @@
  window.PeymanyarStatements={account,total,number,date,overview};
  const css=document.createElement('style');css.textContent='.statement-person-panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin:16px 0}.statement-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.statement-dialog{width:min(1000px,96vw);max-height:90dvh;overflow:auto}.statement-dialog .ledger-scroll{max-height:45dvh;overflow:auto}.statement-dialog thead{position:sticky;top:0}.statement-dialog td input{width:140px;padding:10px;border:1px solid var(--line);border-radius:8px}.statement-dialog .ws-description{width:230px}.statement-dialog .ws-quantity{width:100px}';document.head.append(css);render();
 })();
+
