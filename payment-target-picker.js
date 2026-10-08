@@ -54,7 +54,7 @@
    if(!proj){proj={id:uniqueId(d.projects),name:projectText,client:'ثبت نشده',status:'فعال',budget:0,progress:0,start:date,completeness:'draft'};d.projects.push(proj)}
    if(!who&&!deferred&&party&&!generic(party)){who={id:uniqueId(d.people),name:party,role:p.pickRole||'طرف حساب',project:proj.name,projects:[proj.name],completeness:'draft'};d.people.push(who)}
    rowId=uniqueId(d.transactions);const unresolved=!who;
-   const row={id:rowId,project:proj.name,projectId:proj.id,party:who?.name||'طرف حساب نامشخص',personId:who?.id??null,contractorId:who?.id??null,role:p.pickRole||who?.role||'طرف حساب',amount,date,dateSource:p.dateSource||'default',kind,category,note:p.note,status:unresolved?'نیازمند تکمیل':'ثبت اولیه',source:'voice',paymentMethod:method};
+   const row={id:rowId,createdAt:new Date().toISOString(),project:proj.name,projectId:proj.id,party:who?.name||'طرف حساب نامشخص',personId:who?.id??null,contractorId:who?.id??null,role:p.pickRole||who?.role||'طرف حساب',amount,date,dateSource:p.dateSource||'default',kind,category,note:p.note,status:unresolved?'نیازمند تکمیل':'ثبت اولیه',source:'voice',paymentMethod:method};
    if(unresolved)Object.assign(row,{partyStatus:'unresolved',partyCandidates:specialists(p.pickRole).filter(x=>scoped(x,proj)).map(x=>x.id)});
    if(cheque)Object.assign(row,{chequeNumber:number,chequeBank:bank,chequeDue:due,chequeStatus:'delivered'});
    d.transactions.push(row);if(!d.categories.includes(category))d.categories.push(category);
