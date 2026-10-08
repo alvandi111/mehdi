@@ -22,9 +22,9 @@
    }
   }else{
    for(const rows of Object.values(db).filter(Array.isArray))for(const row of rows){
-    for(const field of ['project','projectName'])if(matches(row[field]))row[field]=name;
+    for(const field of ['project','projectName','toProject'])if(matches(row[field]))row[field]=name;
     if(Array.isArray(row.projects))row.projects=row.projects.map(value=>matches(value)?name:value);
-    if(row.fields)for(const field of ['project','projectName'])if(matches(row.fields[field]))row.fields[field]=name;
+    if(row.fields)for(const field of ['project','projectName','toProject'])if(matches(row.fields[field]))row.fields[field]=name;
    }
   }
   entity.aliases=[...new Set([...oldNames,...(entity.aliases||[])])].filter(old=>old!==name);entity.name=name;return true;
@@ -40,3 +40,4 @@
  const documentBase=documentInfoCard;documentInfoCard=function(doc){return documentBase(doc).replace('</article>',`<button type="button" class="record-delete-visible" onclick="removeDocument(${Number(doc.id)})">حذف سند</button></article>`)};
  render();
 })();
+
