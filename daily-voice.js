@@ -151,9 +151,10 @@ async function saveLongDailyReport() {
   if (!text) return dailyVoiceStatus('شرح گزارش را بنویس یا ضبط کن.');
   const rawDate = document.getElementById('dailyVoiceDate')?.value.trim() || '';
   const dateInfo = PeymanyarCommand.dateInfo(rawDate, todayFa());
-  if (!rawDate || !dateInfo.explicit || dateInfo.date !== normalizeDateValue(rawDate)) return dailyVoiceStatus('تاریخ شمسی گزارش را به شکل ۱۴۰۵/۰۷/۰۶ بررسی کن.');
+  if (!PeymanyarCalendar.parse(rawDate) || !rawDate || !dateInfo.explicit || dateInfo.date !== normalizeDateValue(rawDate)) return dailyVoiceStatus('تاریخ شمسی گزارش را به شکل ۱۴۰۵/۰۷/۰۶ بررسی کن.');
   const project = document.getElementById('dailyVoiceProject')?.value.trim() || 'بدون پروژه';
   const workers = n('dailyVoiceWorkers'), weather = document.getElementById('dailyVoiceWeather')?.value.trim() || '';
+  let labour; try { labour = PeymanyarDaily.values('dailyVoice'); if (!Number.isInteger(workers) || workers < 0 || labour.labourWorkers != null && labour.labourWorkers > workers) throw Error('تعداد نیرو و کارگر روزمزد را بررسی کن'); } catch(error) { return dailyVoiceStatus(error.message); }
   if (db.daily.some(x => x.project === project && normalizeDateValue(x.date) === dateInfo.date && x.text === text) && !confirm('گزارش کاملاً مشابهی ثبت شده است. دوباره ثبت شود؟')) return;
   const id = uid(), audioIds = [];
   const saveButton = document.getElementById('dailyVoiceSave'); if (saveButton) saveButton.disabled = true;
@@ -168,11 +169,13 @@ async function saveLongDailyReport() {
     if (saveButton) saveButton.disabled = false;
     return dailyVoiceStatus('فایل صوتی روی این گوشی ذخیره نشد. فضای دستگاه را بررسی کن و دوباره ثبت بزن؛ متن هنوز اینجاست.');
   }
-  db.daily.unshift({id, project, date: dateInfo.date, workers, weather, text, audioIds, source: session?.audioParts.size ? 'voice-long' : 'manual-long'});
+  const linkedProject = PeymanyarDaily.projectFor({project});
+  const report = {id, project: linkedProject?.name || project, ...(linkedProject ? {projectId: linkedProject.id} : {}), date: dateInfo.date, workers, weather, text, audioIds, ...labour, source: session?.audioParts.size ? 'voice-long' : 'manual-long'};
+  db.daily.unshift(report);
   if (project === 'بدون پروژه') addCompletionTask('daily.project', 'پروژهٔ گزارش روزانه را مشخص کن', {entityId: id, eventDate: dateInfo.date, key: `daily.project:${id}`});
-  else if (!db.projects.some(p => normalizedProjectName(p.name) === normalizedProjectName(project))) {
+  else if (!linkedProject && !db.projects.some(p => normalizedProjectName(p.name) === normalizedProjectName(project))) {
     const newProject = {id: uid(), name: project, client: 'ثبت نشده', location: '', budget: 0, progress: 0, status: 'فعال', start: dateInfo.date, completeness: 'draft'};
-    db.projects.push(newProject);
+    db.projects.push(newProject); report.projectId = newProject.id;
     addCompletionTask('project.details', `تکمیل مشخصات پروژه ${project}`, {entityId: newProject.id, project, key: `project.details:${newProject.id}`});
   }
   save(); dailyVoiceSession = null; document.getElementById('dailyLongModal')?.remove(); render(); toast('گزارش روزانه ثبت شد');
@@ -206,3 +209,4 @@ dashboard = function () {
   return html.replace('<section class="dashboard-projects">', shortcut + '<section class="dashboard-projects">');
 };
 render();
+
