@@ -6,11 +6,14 @@
   const k=key(value);if(!k)return {value:'',ambiguous:false};
   const aliases=rows.filter(r=>(r.aliases||[]).some(a=>key(a)===k));
   if(aliases.length===1)return {value:aliases[0].name,ambiguous:false};
+  // Preserve an explicitly selected spelling before folding alef variants.
+  const literal=rows.filter(r=>PeymanyarCommand.clean(r.name)===PeymanyarCommand.clean(value));
+  if(literal.length===1)return {value:literal[0].name,ambiguous:false};
   const exact=rows.filter(r=>key(r.name)===k);if(exact.length===1)return {value:exact[0].name,ambiguous:false};
   const matches=person?rows.filter(r=>personKey(r.name)===personKey(value)):exact;
   return matches.length===1?{value:matches[0].name,ambiguous:false}:{value,ambiguous:matches.length>1||aliases.length>1};
  }
- function targets(plan){const project=resolve(plan.project,db.projects),party=resolve(plan.party,db.people,true);return {...plan,project:project.value,party:party.value,ambiguousTarget:project.ambiguous||party.ambiguous};}
+ function targets(plan){const project=resolve(plan.project,db.projects),party=resolve(plan.party,db.people,true);return {...plan,project:project.value,party:party.value,ambiguousTarget:project.ambiguous||party.ambiguous,ambiguousProject:project.ambiguous,ambiguousParty:party.ambiguous};}
  const parseBase=parseQuick;
  parseQuick=function(...args){
   if(document.getElementById('bulkCashModal'))return parseBase(...args);
@@ -25,7 +28,7 @@
  confirmSmartPlan=function(...args){
   const p=window.v21Plan;if(!p?.quickPayment)return confirmBase(...args);
   const target=targets({project:v('spProject'),party:v('spParty')});
-  if(target.ambiguousTarget)return toast('چند حساب مشابه وجود دارد؛ نام کامل شخص و پروژه را از فهرست انتخاب کن');
+  if(target.ambiguousTarget)return toast(target.ambiguousProject?'چند پروژه با این نام وجود دارد؛ نام دقیق پروژه را از فهرست انتخاب کن':'چند شخص با این نام وجود دارد؛ نام کامل طرف حساب را از فهرست انتخاب کن');
   document.getElementById('spProject').value=target.project;document.getElementById('spParty').value=target.party;
   p.paymentMethod=v('spMethod');
   if(p.paymentMethod==='cheque'){
@@ -49,3 +52,4 @@
   return confirmBase(...args);
  };
 })();
+

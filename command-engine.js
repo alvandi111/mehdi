@@ -42,6 +42,17 @@
  const between=(s,re,stops)=>{const m=s.match(re);if(!m)return'';return clean(m[1].split(new RegExp(`\\s+(?:${stops.join('|')})\\s*`))[0]).replace(/^(?:به نام|بنام|اسم)\s+/,'').replace(/^(?:بساز|ایجاد(?: کن| شود)?|تعریف کن|ثبت کن)$/,'')};
  function entity(text,list){const source=' '+clean(text)+' ',matches=list.map(item=>({item,length:Math.max(0,...[item.name,...(item.aliases||[])].map(name=>{const n=clean(name);return n&&source.includes(' '+n+' ')?n.length:0}))})).filter(x=>x.length);if(matches.length){matches.sort((a,b)=>b.length-a.length);return matches.length===1||matches[0].length>matches[1].length?matches[0].item:null}const sourceWords=new Set(source.split(' ').filter(w=>w.length>2&&!['اوسا','استاد','آقای','خانم','مهندس','بنا','کارگر','پیمانکار','نگهبان','جوشکار','برقکار','نقاش'].includes(w)));const scored=list.map(item=>({item,hits:clean(item.name).split(' ').filter(w=>sourceWords.has(w)).length})).filter(x=>x.hits);if(!scored.length)return null;scored.sort((a,b)=>b.hits-a.hits);return scored.length===1||scored[0].hits>scored[1].hits?scored[0].item:null}
  function datesOf(text,fallback){const s=digits(text),matches=s.match(/(?:1[34]\d{2}[\/-]\d{1,2}[\/-]\d{1,2}|\d{1,2}[\/-]\d{1,2}[\/-]1[34]\d{2})/g)||[];return matches.map(raw=>dateInfo(raw,fallback).date)}
+ function paymentRecipient(text){
+  // An explicitly spoken recipient outranks a category stored as a person.
+  const stop='بابت|برای|در|پروژه|مبلغ|به مبلغ|به صورت|به شکل|با چک|پرداخت|واریز|دادم|گرفتم|داده|تحویل|دیروز|امروز|پریروز|تومان|تومن|ریال|را|رو';
+  const direct=text.match(new RegExp('(?:^|\\s)(?:به|از)\\s+(?:(?:حساب|کارت)\\s+)?(.+?)(?=\\s+(?:'+stop+')(?:\\s|$)|[.،]|$)'));
+  let name=clean(direct?.[1]||'');
+  if(/^(?:صورت|شکل|مبلغ|کارفرما|من|ما|خودم)(?:\s|$)/.test(name))name='';
+  if(name)return name;
+  const role=text.match(new RegExp('(?:بابت|برای)\\s+(?:هزینه\\s+)?(?:نگهبانی|نگهبان|کارگری|جوشکاری|بنایی|دستمزد|حقوق)\\s+(.+?)(?=\\s+(?:'+stop+')(?:\\s|$)|[.،]|$)'));
+  name=clean(role?.[1]||'');
+  return /^(?:در|برای|پروژه|پرداخت|واریز|دیروز|امروز|شد)(?:\s|$)/.test(name)?'':name;
+ }
  function monthRange(text,fallback){const s=digits(text),entry=Object.entries(monthNames).find(([name])=>s.includes(name));if(!entry)return null;const year=Number((s.match(/1[34]\d{2}/)||[])[0])||Number((String(fallback||persianToday()).match(/1[34]\d{2}/)||[])[0]),month=entry[1],last=month<=6?31:month<=11?30:29;return{from:validDate(year,month,1),to:validDate(year,month,last),label:entry[0]}}
  function parse(input,db,today){const text=clean(input),normalized=digits(text);const projects=db.projects||[],people=db.people||[];const projectMatch=text.match(/(?:در|برای)?\s*پروژه(?:ی|‌ی)?\s+(.+?)(?=\s+(?:واریز|پرداخت|داده|تحویل|ثبت|انجام|کردم|شد|بابت|مبلغ|به حساب|به صورت|به شکل|با چک|برای|امروز|دیروز|در|از|تا|را|شهریور|مهر|فروردین|اردیبهشت|خرداد|تیر|مرداد|آبان|آذر|دی|بهمن|اسفند)(?:\s|$)|[.،]|$)/);const mentionedProject=clean(projectMatch?.[1]||'');const explicitProject=mentionedProject&&projects.find(p=>[p.name,...(p.aliases||[])].some(n=>clean(n)===mentionedProject));const project=mentionedProject?(explicitProject||{name:mentionedProject}):entity(text,projects);let person=entity(text,people);if(!person&&project&&!/(?:به|از)\s+/.test(text)){const byRole=people.filter(p=>(!p.project||p.project===project.name)&&p.role&&text.includes(clean(p.role)));if(byRole.length===1)person=byRole[0]}const dateMeta=dateInfo(text,today),date=dateMeta.date;
   if(/(?:^|\s)(?:یک\s+)?پروژه(?:\s+جدید)?(?:\s+به نام)?[^.]{0,100}(?:بساز|ایجاد|تعریف)/.test(text)){
@@ -73,10 +84,12 @@
    const category=/بالابر/.test(text)?'کرایه بالابر':/جرثقیل/.test(text)?'کرایه جرثقیل':/ماسه|سیمان|گچ|آجر|بلوک|بتن|سنگ|کاشی|سرامیک|مصالح/.test(text)?'خرید مصالح':/یراق|لولا|دستگیره|پیچ/.test(text)?'خرید یراق‌آلات':/ابزار|دریل|فرز|مته/.test(text)?'خرید ابزار':/وانت/.test(text)?'کرایه وانت':/اسنپ|تاکسی/.test(text)?'کرایه اسنپ':/جرثقیل/.test(text)?'کرایه جرثقیل':/نگهبان|نگهبانی/.test(text)?'هزینه نگهبانی':/جریمه|عوارض/.test(text)?'عوارض و جریمه':/(?:خرید|فاکتور|خریدم)/.test(text)?'خرید لوازم':/تنخواه/.test(text)?'تنخواه':/حقوق|دستمزد|کارگر|کارگری/.test(text)?'حقوق و دستمزد':kind==='income'?'دریافت از کارفرما':contractorPayment?'پرداخت پیمانکار':'هزینه عمومی';
    const amount=amountOf(text),candidate=between(text,/(?:به|از)\s+(.+)/,['به صورت','به شکل','با چک','داده شد','تحویل داده شد','برای پروژه','در پروژه','پروژه','مبلغ','به مبلغ','پرداخت','واریز','دادم','گرفتم','تومان','تومن','ریال']).replace(/^(?:حساب|کارت)\s+/,'').replace(/^(?:آقای|خانم|مهندس|استاد)\s+/,'')||'';
    const finalCandidate=/^(?:کارفرما|من|ما|خودم)(?:\s|$)/.test(candidate)?'':candidate;
-   return {intent:'transaction_create',label:kind==='income'?'ثبت دریافت':'ثبت پرداخت یا هزینه',project:project?.name||'',party:person?.name||finalCandidate||(category==='هزینه عمومی'?'هزینه پروژه':''),amount,amountWarning:spokenAmountInfo(text)?.warning||'',date,dateSource:dateMeta.source,kind,category,paymentMethod:/(?:چک|چِک)(?:\s|[.،]|$)/.test(text)?'cheque':/نقد/.test(text)?'cash':'bank',note:text,missing:[!project&&'نام پروژه',!amount&&'مبلغ'].filter(Boolean)};
+   const recipient=paymentRecipient(text),recipientPerson=recipient&&entity(recipient,people);
+   return {intent:'transaction_create',label:kind==='income'?'ثبت دریافت':'ثبت پرداخت یا هزینه',project:project?.name||'',party:recipient?(recipientPerson?.name||recipient):person?.name||finalCandidate||(category==='هزینه عمومی'?'هزینه پروژه':''),amount,amountWarning:spokenAmountInfo(text)?.warning||'',date,dateSource:dateMeta.source,kind,category,paymentMethod:/(?:چک|چِک)(?:\s|[.،]|$)/.test(text)?'cheque':/نقد/.test(text)?'cash':'bank',note:text,missing:[!project&&'نام پروژه',!amount&&'مبلغ'].filter(Boolean)};
   }
   return {intent:'unknown',label:'فرمان نامشخص',missing:['نوع عملیات']};
  }
  return {parse,amountOf,dateOf,dateInfo,datesOf,monthRange,clean};
 });
+
 
