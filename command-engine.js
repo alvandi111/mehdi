@@ -89,7 +89,7 @@
   }
   return {intent:'unknown',label:'فرمان نامشخص',missing:['نوع عملیات']};
  }
- return {parse,amountOf,dateOf,dateInfo,datesOf,monthRange,clean};
+ return {parse,amountOf,dateOf,dateInfo,datesOf,monthRange,clean,paymentRecipient};
 });
 
 
