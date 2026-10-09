@@ -2,7 +2,7 @@
  'use strict';
  let session = null, serial = 0;
  window.peymanyarFrozenVoice = Object.freeze({assistantPanel, startVoice});
- assistantPanel = () => `<section class="card voice-entry" aria-label="ثبت با صدا"><span class="voice-entry-label">دستیار ثبت فارسی</span><button type="button" class="btn primary voice-launch" aria-label="ضبط فرمان فارسی" onclick="openQuick();startVoice()"><span class="voice-launch-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><rect x="17" y="5" width="14" height="25" rx="7" stroke="currentColor" stroke-width="3"/><path d="M11 23v2a13 13 0 0 0 26 0v-2M24 38v6M17 44h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span><strong>بگو، ثبت کن</strong><span class="voice-launch-description">هزینه، دریافت یا گزارش کارگاه را بگو</span></button><p class="voice-entry-hint">صدایت به متن تبدیل می‌شود؛ ثبت با تأیید تو انجام می‌شود.</p><button type="button" class="btn voice-type" onclick="openQuick()">نوشتن فرمان <span aria-hidden="true">←</span></button></section>`;
+ assistantPanel = () => `<section class="card voice-entry" aria-label="ثبت با صدا"><span class="voice-entry-label">دستیار ثبت فارسی</span><button type="button" class="btn primary voice-launch" aria-label="ضبط فرمان فارسی" onclick="openQuick();startVoice()"><span class="voice-launch-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><rect x="17" y="5" width="14" height="25" rx="7" stroke="currentColor" stroke-width="3"/><path d="M11 23v2a13 13 0 0 0 26 0v-2M24 38v6M17 44h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span><strong>بگو، ثبت کن</strong><span class="voice-launch-description">گزارش، پرداخت، قرارداد یا ساخت شخص و پروژه را بگو</span></button><p class="voice-entry-hint">صدایت به متن تبدیل می‌شود؛ ثبت با تأیید تو انجام می‌شود.</p><button type="button" class="btn voice-type" onclick="openQuick()">نوشتن فرمان <span aria-hidden="true">←</span></button></section>`;
  const dashboardBase=dashboard;dashboard=function(){const panel=assistantPanel();return dashboardBase().replace(panel,'').replace(/(<main class="(?:phone-content|content)">)/,`$1${panel}`)};
  function fields() {
   document.querySelectorAll('[data-ld-original-id]').forEach(el => {el.id=el.dataset.ldOriginalId;delete el.dataset.ldOriginalId});
@@ -21,8 +21,8 @@
   s.overlay.querySelector('.voice-retry').hidden=!s.failed.length;
   if(s.failed.length){status(s,s.finalError||'تبدیل صدا انجام نشد؛ صدا حفظ شده؛ دوباره تلاش کن.');return}
   display(s);if(!s.text){if(!s.error)status(s,'متنی دریافت نشد؛ صفحه را ببند و دوباره ضبط کن.');return}
-  s.input.value=[s.base,s.text].filter(Boolean).join(' ');dismiss(s);setVoiceState('ضبط پایان یافت؛ متن را بررسی کن و «تحلیل و ادامه» را بزن.');s.input.focus();
-  // No input event or automatic analysis: the user reviews first.
+  s.input.value=[s.base,s.text].filter(Boolean).join(' ');s.input._voiceBlob=s.finalBlob;dismiss(s);setVoiceState('ضبط پایان یافت؛ پیش‌نویس را بررسی کن. ثبت فقط با تأیید تو انجام می‌شود.');s.input.focus();if(window.PeymanyarIntents)parseQuick();
+  // Routing only opens an editable preview; it never posts a record.
  }
  function queue(s,blob,final=false){
   if(final){s.finalPending=true;s.finalRequested=true;s.failed=[];s.finalError=''}else s.previewPending=true;
@@ -36,7 +36,7 @@
       if(!retry||!active(s))return;
      }
     }if(!String(text||'').trim())throw new Error('متنی در صدا تشخیص داده نشد');if(!active(s))return;
-    if(final){s.finalText=text;s.verified=true;display(s)}else if(s.recording){s.parts.clear();s.parts.set(1,text);display(s)}
+    if(final){s.finalBlob=blob;s.finalText=text;s.verified=true;display(s)}else if(s.recording){s.parts.clear();s.parts.set(1,text);display(s)}
    }catch(error){if(active(s)){if(final){s.failed=[{blob}];s.finalError=`تبدیل صدای کامل انجام نشد؛ صدا حفظ شده است. ${voiceServiceError(error)}`;status(s,s.finalError)}else if(s.recording)status(s,'ضبط ادامه دارد؛ متن نهایی پس از پایان آماده می‌شود.')}
    }finally{s.pending--;if(final){s.finalPending=false;settled(s)}else s.previewPending=false}
   });
@@ -74,3 +74,4 @@
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&session?.recording)stop()});window.addEventListener('pagehide',()=>{if(session)dismiss(session)});
  fields();render();
 })();
+

@@ -55,6 +55,14 @@
  }
  function monthRange(text,fallback){const s=digits(text),entry=Object.entries(monthNames).find(([name])=>s.includes(name));if(!entry)return null;const year=Number((s.match(/1[34]\d{2}/)||[])[0])||Number((String(fallback||persianToday()).match(/1[34]\d{2}/)||[])[0]),month=entry[1],last=month<=6?31:month<=11?30:29;return{from:validDate(year,month,1),to:validDate(year,month,last),label:entry[0]}}
  function parse(input,db,today){const text=clean(input),normalized=digits(text);const projects=db.projects||[],people=db.people||[];const projectMatch=text.match(/(?:در|برای)?\s*پروژه(?:ی|‌ی)?\s+(.+?)(?=\s+(?:واریز|واریزی|پرداخت|پرداختی|دریافت|گرفتم|دادم|داده|تحویل|ثبت|انجام|کردم|شد|بابت|مبلغ|به حساب|به صورت|به شکل|با چک|برای|امروز|دیروز|در|از|تا|را|شهریور|مهر|فروردین|اردیبهشت|خرداد|تیر|مرداد|آبان|آذر|دی|بهمن|اسفند)(?:\s|$)|[.،]|$)/);let mentionedProject=clean(projectMatch?.[1]||'');const projectPrefixes=projects.flatMap(p=>[p.name,...(p.aliases||[])].map(name=>({p,name:clean(name)}))).filter(x=>mentionedProject.startsWith(x.name+' ')&&/^(?:مبلغ|[۰-۹٠-٩0-9]+|یک|یه|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|بیست|سی|صد|دویست)(?:\s|$)/.test(mentionedProject.slice(x.name.length).trim())).sort((a,b)=>b.name.length-a.name.length);if(projectPrefixes.length&&(projectPrefixes.length===1||projectPrefixes[0].name.length>projectPrefixes[1].name.length))mentionedProject=projectPrefixes[0].name;const explicitProject=mentionedProject&&projects.find(p=>[p.name,...(p.aliases||[])].some(n=>clean(n)===mentionedProject));const project=mentionedProject?(explicitProject||{name:mentionedProject}):entity(text,projects);let person=entity(text,people);if(!person&&project&&!/(?:به|از)\s+/.test(text)){const byRole=people.filter(p=>(!p.project||p.project===project.name)&&p.role&&text.includes(clean(p.role)));if(byRole.length===1)person=byRole[0]}const dateMeta=dateInfo(text,today),date=dateMeta.date;
+  if(/گزارش(?: روزانه| کارگاه| کار| پروژه)/.test(text)&&!/(?:گزارش مالی|گزارش پرداخت|گزارش دریافتی|گزارش هزینه|ریز پرداخت|صورت حساب)/.test(text)){
+   const known=entity(text,projects),workers=(wordsNumber((normalized.match(/((?:\d+|یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)(?:\s+و\s+(?:یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه))?)\s*(?:تا\s*)?(?:نفر|کارگر|نیرو)/)||[])[1]?.split(' ')||[])||0);
+   return {intent:'daily_create',label:'ثبت گزارش روزانه',project:known?.name||project?.name||'',date,dateSource:dateMeta.source,workers,weather:(text.match(/(?:هوا|وضعیت هوا)\s+(آفتابی|بارانی|برفی|ابری|گرم|سرد)/)||[])[1]||'',text,missing:[!known&&!project&&'نام پروژه'].filter(Boolean)};
+  }
+  if(/قرارداد/.test(text)&&/(?:بساز|ساخت|بنویس|تنظیم|ثبت|ایجاد|ببند|قرارداد با)/.test(text)){
+   const known=entity(text,projects);
+   return {intent:'contract_create',label:'پیش‌نویس قرارداد',project:known?.name||project?.name||'',party:person?.name||'',amount:amountOf(text),date,text,missing:[]};
+  }
   if(/(?:^|\s)(?:یک\s+)?پروژه(?:\s+جدید)?(?:\s+به نام)?[^.]{0,100}(?:بساز|ایجاد|تعریف)/.test(text)){
    const name=between(text,/(?:به نام|بنام|اسم)\s+(.+)/,['کارفرما','با کارفرما','در','واقع در','بودجه','مبلغ','شروع','بساز','ایجاد','تعریف','ثبت'])||between(text,/پروژه(?: جدید)?\s+(.+)/,['بساز','ایجاد کن','ایجاد شود','تعریف کن','ثبت کن','کارفرما','در','بودجه']);
    const client=between(text,/(?:کارفرما(?:ی آن)?|با کارفرما)\s+(.+)/,['در','واقع در','بودجه','مبلغ','شروع','بساز','ایجاد','تعریف','ثبت']);
@@ -62,18 +70,18 @@
    const progress=Number((normalized.match(/(\d+)\s*(?:درصد|٪)\s*(?:پیشرفت)?/)||[])[1]||0),duplicate=name&&projects.some(p=>clean(p.name)===clean(name));
    return {intent:'project_create',label:'ساخت پروژه جدید',name,client,location,budget:amountOf(text),progress,date,missing:[!name&&'نام پروژه',duplicate&&'این پروژه قبلاً ثبت شده است'].filter(Boolean)};
   }
-  if(/(?:(?:پیمانکار|استادکار|کارگر|نیرو|فرد).*(?:جدید|اضافه|تعریف|ثبت|بساز|ایجاد)|به عنوان\s+(?:پیمانکار|استادکار|کارگر|نیرو).*(?:ثبت|اضافه|تعریف|بساز|ایجاد))/.test(text)||(/(?:با\s+(?:تخصص|عنوان|نقش)|به\s+عنوان)\s+.+?(?:\s+(?:در|برای)\s+پروژه\s+.+?)?\s+(?:ثبت|اضافه|تعریف|ایجاد|بساز)(?:\s|$)/.test(text)&&!/پرداخت|هزینه|واریز|دریافت/.test(text))){
+  if(/(?:ایجاد|ساخت|تعریف)\s+(?:یک\s+)?(?:پیمانکار|فروشنده|شخص|نفر|نیرو)/.test(text)||/(?:(?:پیمانکار|استادکار|کارگر|نیرو|فرد).*(?:جدید|اضافه|تعریف|ثبت|بساز|ایجاد)|به عنوان\s+(?:پیمانکار|استادکار|کارگر|نیرو).*(?:ثبت|اضافه|تعریف|بساز|ایجاد))/.test(text)||(/(?:با\s+(?:تخصص|عنوان|نقش)|به\s+عنوان)\s+.+?(?:\s+(?:در|برای)\s+پروژه\s+.+?)?\s+(?:ثبت|اضافه|تعریف|ایجاد|بساز)(?:\s|$)/.test(text)&&!/پرداخت|هزینه|واریز|دریافت/.test(text))){
    const roles=['جوشکار','بنا','برقکار','لوله کش','لوله‌کش','نگهبان','کارگر','کابینت کار','کابینت‌کار','نقاش','گچ کار','گچ‌کار','سرامیک کار','سرامیک‌کار','تاسیسات کار','تأسیسات کار','تأسیسات‌کار'];
    const specialty=text.match(/(?:با\s+(?:تخصص|عنوان|نقش)|تخصص(?:ش|ِ او)?|به\s+عنوان)\s+(.+?)(?=\s+(?:به\s+(?:عنوان\s+)?پیمانکار(?:ان|ها|ا)?|در|برای)\s+پروژه|\s+به\s+پیمانکار(?:ان|ها|ا)?|\s+(?:ثبت|اضافه|تعریف|بساز|ایجاد)(?:\s|$)|$)/);
    const role=clean(specialty?.[1]||'').replace(/^(?:پیمانکار|نیرو|کارگر)\s+/,'')||roles.find(r=>text.includes(r))||'';
    let name=between(text,/(?:به نام|بنام|اسم)\s+(.+)/,[...roles,'با تخصص','با عنوان','با نقش','تخصص','به عنوان','برای پروژه','در پروژه','شماره','موبایل','اضافه','تعریف','ثبت','بساز','ایجاد']);
    if(!name){const byTitle=text.match(/^(.*?)\s+(?:با\s+(?:تخصص|عنوان|نقش)|به\s+عنوان|به\s+پیمانکار(?:ان|ها|ا)?\s+اضافه)/);name=clean(byTitle?.[1]||'').replace(/^(?:آقای|خانم|مهندس|استاد)\s+/,'')}
-   if(!name)name=between(text,/(?:پیمانکار|استادکار|کارگر|نیرو|فرد)(?: جدید)?\s+(.+)/,[...roles,'برای پروژه','در پروژه','شماره','موبایل','اضافه','تعریف','ثبت','بساز','ایجاد']);
+   if(!name)name=between(text,/(?:پیمانکار|استادکار|کارگر|نیرو|فرد|فروشنده|شخص|نفر)(?: جدید)?(?: به نام)?\s+(.+)/,[...roles,'برای پروژه','در پروژه','شماره','موبایل','اضافه','تعریف','ثبت','بساز','ایجاد']);
    name=clean(name).replace(/\s+(?:را|رو)$/,'');
    const phone=(normalized.match(/09\d{9}/)||[])[0]||'',duplicate=name&&people.some(p=>clean(p.name)===clean(name));
    return {intent:'person_create',label:'تعریف پیمانکار یا نیرو',name,role,project:project?.name||'',phone,date,dateSource:dateMeta.source,missing:[!name&&'نام شخص'].filter(Boolean),duplicate:!!duplicate};
   }
-  if(/(?:گزارش روزانه|گزارش کارگاه|امروز).*(?:ثبت|بنویس|کار|انجام|شد)/.test(text)&&(/گزارش روزانه|گزارش کارگاه/.test(text)||(amountOf(text)===0&&!/پرداخت|واریز|دریافت|تومان|تومن|ریال/.test(text)))){
+  if(/(?:گزارش روزانه|گزارش کارگاه|گزارش پروژه|گزارش کار|امروز).*(?:ثبت|بنویس|کار|انجام|شد)/.test(text)&&(/گزارش روزانه|گزارش کارگاه|گزارش پروژه|گزارش کار/.test(text)||(amountOf(text)===0&&!/پرداخت|واریز|دریافت|تومان|تومن|ریال/.test(text)))){
    const workers=Number((normalized.match(/(\d+)\s*(?:نفر|کارگر|نیرو)/)||[])[1]||0),weather=(text.match(/(?:هوا|وضعیت هوا)\s+(آفتابی|بارانی|برفی|ابری|گرم|سرد)/)||[])[1]||'';
    return {intent:'daily_create',label:'ثبت گزارش روزانه',project:project?.name||'',date,dateSource:dateMeta.source,workers,weather,text,missing:[!project&&'نام پروژه'].filter(Boolean)};
   }
