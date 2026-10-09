@@ -1,0 +1,8 @@
+const assert=require('node:assert/strict');
+(async()=>{const {writing,correspondenceOCR}=await import('../ai-worker/writing.mjs');const req=(body)=>new Request('https://worker/compose',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});let calls=0;
+let r=await writing(req({kind:'report',text:'متن'}),{},'https://alvandi111.github.io');assert.equal(r.status,503);
+r=await writing(req({kind:'invalid',text:'متن'}),{GROQ_API_KEY:'fake'},'https://alvandi111.github.io',()=>{calls++});assert.equal(r.status,400);assert.equal(calls,0);
+r=await writing(req({kind:'report',text:'هفت نفر بودند ولی کار تمام نشد'}),{GROQ_API_KEY:'fake'},'https://alvandi111.github.io',async(url,init)=>{calls++;const p=JSON.parse(init.body);assert.ok(p.messages[0].content.includes('نفی'));assert.ok(p.messages[0].content.includes('حدس')||p.messages[0].content.includes('نساز'));assert.equal(p.messages[1].role,'user');return Response.json({choices:[{message:{content:JSON.stringify({text:'هفت نفر حضور داشتند؛ کار تکمیل نشد.',warnings:[],items:[]})}}]})});assert.equal(r.status,200);assert.match((await r.json()).text,/نشد/);
+r=await writing(req({kind:'quote',text:'قیمت'}),{GROQ_API_KEY:'fake'},'',async()=>Response.json({choices:[{message:{content:'not JSON'}}]}));assert.equal(r.status,502);
+const fd=new FormData();fd.append('file',new Blob(['pdf'],{type:'application/pdf'}),'test.pdf');r=await correspondenceOCR(new Request('https://worker/correspondence-ocr',{method:'POST',body:fd}),{GROQ_API_KEY:'fake'},'');assert.equal(r.status,400);
+console.log('PASS: writing input/secret checks, bounded structured prompt, no invented facts instruction, JSON failure and image-only OCR guard');})().catch(e=>{console.error(e);process.exitCode=1});
