@@ -1,0 +1,16 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const {JSDOM,VirtualConsole}=require(process.env.LEDGER_JSDOM||'../../voice-test-runtime/node_modules/jsdom');
+const root=path.join(__dirname,'..'),storage='peymanyar-v1-data';
+function boot(saved){
+ const errors=[],console=new VirtualConsole();console.on('jsdomError',e=>errors.push(e));
+ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ const w=new JSDOM(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,''),{url:'https://alvandi111.github.io/mehdi/',runScripts:'dangerously',virtualConsole:console}).window;
+ w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.scrollTo=()=>{};w.confirm=()=>true;w.alert=()=>{};w.matchMedia=()=>({matches:false,addEventListener(){}});w.fetch=async()=>{throw Error('offline test')};
+ if(saved)w.localStorage.setItem(storage,saved);
+ // All app scripts in the deployed order. The network SDK is not used in this local ledger test.
+ for(const m of html.matchAll(/<script src="([^?\"]+)/g)){const file=m[1];if(file.startsWith('vendor/'))continue;const s=w.document.createElement('script');s.textContent=fs.readFileSync(path.join(root,file),'utf8');w.document.body.append(s)}
+ assert.deepEqual(errors,[]);return w;
+}
+
+
+(async()=>{const w=boot(),d=w.document;w.openLongDailyReport();await new Promise(r=>setTimeout(r,0));const b=d.getElementById('dailyVoiceStart');assert.ok(b.classList.contains('report-record-button'));assert.ok(d.querySelector('.dialog-head').nextElementSibling.contains(b));assert.equal(b.getAttribute('onclick'),'toggleReportRecording()');w.eval('dailyVoiceSession={recording:true,pending:1,failed:[]}');w.dailyVoiceControls();assert.equal(b.disabled,false);assert.ok(b.classList.contains('is-recording'));assert.match(b.textContent,/پایان ضبط/);assert.equal(b.getAttribute('aria-pressed'),'true');w.eval('dailyVoiceSession.recording=false');w.dailyVoiceControls();assert.equal(b.disabled,true);assert.ok(b.classList.contains('is-converting'));assert.match(b.textContent,/تبدیل/);w.eval('dailyVoiceSession.pending=0');w.dailyVoiceControls();assert.equal(b.disabled,false);assert.equal(b.classList.contains('is-recording'),false);w.closeLongDailyReport();w.openCorrespondence('outgoing');await new Promise(r=>setTimeout(r,0));assert.ok(d.querySelector('#secEditor .dialog-head').nextElementSibling.querySelector('[onclick="dictateCorrespondence()"]'));w.dictateCorrespondence();await new Promise(r=>setTimeout(r,0));const sec=d.getElementById('secRecord'),status=d.querySelector('#secVoice [role=status]');status.textContent='در حال ضبط؛ برای پایان روی دکمه بزن.';await new Promise(r=>setTimeout(r,0));assert.ok(sec.classList.contains('is-recording'));status.textContent='در حال تبدیل صدا به متن…';await new Promise(r=>setTimeout(r,0));assert.equal(sec.disabled,true);assert.ok(sec.classList.contains('is-converting'));status.textContent='متن آماده است';await new Promise(r=>setTimeout(r,0));assert.equal(sec.disabled,false);w.closeCorrespondenceRecorder();console.log('PASS: top recording controls, red recording/stop, amber converting, enabled completion, dedicated letter voice entry');w.close()})().catch(e=>{console.error(e);process.exitCode=1});
