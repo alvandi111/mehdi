@@ -17,9 +17,9 @@
  function insertPanel(html,project){const holder=document.createElement('div');holder.innerHTML=html;holder.querySelector('main')?.insertAdjacentHTML('afterbegin',panel(project));return holder.innerHTML}
  const baseProject=projectDetail;projectDetail=function(){const html=baseProject(),p=db.projects.find(p=>eq(p.id,selectedProjectId));return p?insertPanel(html,p.name):html};
  const baseFinance=finance;finance=function(){return insertPanel(baseFinance(),'')};
- const baseDashboard=dashboard;dashboard=function(){return insertPanel(baseDashboard(),'')};
  const baseTable=transactionReportTable;transactionReportTable=function(rows){const html=baseTable(rows),holder=document.createElement('div');holder.innerHTML=html;holder.querySelectorAll('tbody tr').forEach((tr,i)=>{const t=rows[i];if(!t)return;const menu=tr.querySelector('.ledger-row-menu div');if(menu&&t.paymentMethod!=='cheque')menu.insertAdjacentHTML('beforeend',`<button onclick="openClientDirectPayment('',${Number(t.id)})">منبع پرداخت / مبنای درصد</button>`);if(direct(t)){const cell=tr.cells[4];if(cell)cell.insertAdjacentHTML('beforeend',`<small style="display:block">پرداخت مستقیم ${esc(t.fundingClient||'کارفرما')}؛ خارج از حساب مدیر</small>`)}});return holder.innerHTML};
  const baseEditor=openRecordEditor;openRecordEditor=function(kind,id){const t=kind==='transaction'?db.transactions.find(t=>eq(t.id,id)):db.transactions.find(t=>eq(t.documentId,id));if(t&&direct(t))return openClientDirectPayment('',t.id);return baseEditor(kind,id)};
  window.PeymanyarFunding={sum,projectSummary,isDirect:direct};
  render();
 })();
+
