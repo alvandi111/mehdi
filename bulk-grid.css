@@ -45,3 +45,30 @@
  .bulk-grid-pan span{font-size:11px}
  .bulk-grid-expanded .bulk-cash-dialog{width:100vw!important;height:100dvh;max-height:100dvh!important;padding:10px;border-radius:0}
 }
+
+/* Entry and suggestions stay inside the visible screen, including the phone keyboard. */
+#bulkCashModal:is(.bulk-manual-mode,.bulk-grid-expanded){top:var(--bulk-visible-top,0px);bottom:auto;height:var(--bulk-visible-height,100dvh);box-sizing:border-box;place-items:start center;padding:8px}
+#bulkCashModal:is(.bulk-manual-mode,.bulk-grid-expanded) .bulk-cash-dialog{height:calc(var(--bulk-visible-height,100dvh) - 16px);max-height:calc(var(--bulk-visible-height,100dvh) - 16px)!important;padding:12px;border-radius:18px}
+.bulk-manual-mode .dialog-head h2{font-size:19px;margin:4px 0}
+.bulk-manual-mode .bulk-cash-dialog>.field{display:flex;align-items:center;gap:10px}
+.bulk-manual-mode .bulk-cash-dialog>.field label{white-space:nowrap;font-size:12px}
+.bulk-manual-mode .bulk-cash-dialog>.field select{flex:1;min-width:0;padding:8px;min-height:40px}
+.bulk-manual-mode .bulk-entry-controls{gap:8px;margin:6px 0}
+.bulk-manual-mode .bulk-entry-controls label{display:flex;align-items:center;gap:8px;flex:1;font-size:12px}
+.bulk-manual-mode .bulk-entry-controls input{width:145px;min-width:0;box-sizing:border-box;font-size:16px}
+.bulk-floating-picker{position:fixed;z-index:110;box-sizing:border-box;min-width:0!important;direction:rtl;overscroll-behavior:contain;box-shadow:0 10px 30px #17362f35;border:2px solid #6c937c}
+.bulk-floating-picker .btn{flex-shrink:0;width:100%;font-size:16px;white-space:normal}
+.bulk-floating-picker small{min-width:0;line-height:1.5;color:#526b5d}
+.bulk-manual-mode .bulk-edit-table td[data-bulk-control] small{font-size:11px;line-height:1.4}
+.bulk-keyboard-open:is(.bulk-manual-mode,.bulk-grid-expanded) .bulk-cash-dialog>.field,.bulk-keyboard-open:is(.bulk-manual-mode,.bulk-grid-expanded) .bulk-entry-controls,.bulk-keyboard-open:is(.bulk-manual-mode,.bulk-grid-expanded) #bulkTotals{display:none}
+@media(max-width:700px){
+ #bulkCashModal:is(.bulk-manual-mode,.bulk-grid-expanded){padding:4px}
+ #bulkCashModal:is(.bulk-manual-mode,.bulk-grid-expanded) .bulk-cash-dialog{height:calc(var(--bulk-visible-height,100dvh) - 8px);max-height:calc(var(--bulk-visible-height,100dvh) - 8px)!important;padding:10px}
+ .bulk-grid-toolbar{flex-wrap:nowrap;gap:6px;padding:6px}
+ .bulk-grid-toolbar>strong,.bulk-grid-toolbar .bulk-zoom-range{display:none}
+ .bulk-grid-toolbar .bulk-zoom-controls{order:0;width:auto;justify-content:start;margin-inline-end:auto;gap:4px}
+ .bulk-grid-toolbar button{padding:4px 7px;min-width:32px;font-size:12px}
+ .bulk-grid-toolbar .bulk-zoom-value{min-width:32px;font-size:12px}
+ .bulk-manual-mode .bulk-entry-controls>.btn{font-size:12px;padding:8px}
+ .bulk-keyboard-open #bulkReview{gap:4px;grid-template-rows:minmax(0,1fr) auto}
+}

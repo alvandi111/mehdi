@@ -1,6 +1,38 @@
 (function(){
  'use strict';
  let zoom=100,current=null,observer=null;
+ let picker=null,pickerInput=null;
+ function visibleArea(){const v=window.visualViewport;return {top:v?.offsetTop||0,left:v?.offsetLeft||0,height:v?.height||window.innerHeight,width:v?.width||window.innerWidth}}
+ function resizeWorkspace(){
+  const modal=document.getElementById('bulkCashModal');if(!modal)return;
+  const area=visibleArea(),focused=modal.contains(document.activeElement)&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||'');
+  modal.style.setProperty('--bulk-visible-height',area.height+'px');modal.style.setProperty('--bulk-visible-top',area.top+'px');
+  modal.classList.toggle('bulk-keyboard-open',focused&&window.innerHeight-area.height>120);
+ }
+ function positionPicker(){
+  if(!picker?.isConnected)return;
+  if(!pickerInput?.isConnected){picker.remove();picker=null;return}
+  const area=visibleArea(),r=pickerInput.getBoundingClientRect(),edge=8;
+  if(r.bottom<area.top||r.top>area.top+area.height){picker.remove();picker=null;return}
+  const width=Math.min(Math.max(r.width,240),area.width-2*edge),left=Math.max(area.left+edge,Math.min(r.right-width,area.left+area.width-width-edge));
+  const below=area.top+area.height-r.bottom-edge,above=r.top-area.top-edge;
+  const down=below>=150||below>=above,room=Math.max(44,down?below:above),height=Math.min(240,room);
+  picker.style.width=width+'px';picker.style.left=left+'px';picker.style.maxHeight=height+'px';
+  picker.style.top=(down?r.bottom+4:Math.max(area.top+edge,r.top-Math.min(picker.scrollHeight||height,height)-4))+'px';
+ }
+ function revealRow(index,key='date'){
+  if(!current?.viewport.isConnected)return;
+  resizeWorkspace();
+  const {viewport,table,shell}=current,rows=table.querySelectorAll('tbody tr'),row=rows[index];if(!row)return;
+  const previous=rows[Math.max(0,index-1)],head=table.querySelector('thead'),vr=viewport.getBoundingClientRect();
+  viewport.scrollTop=Math.max(0,viewport.scrollTop+previous.getBoundingClientRect().top-vr.top-(head?.getBoundingClientRect().height||0));
+  const input=row.querySelector(`[aria-label="${key} ردیف ${index+1}"]`),r=input?.getBoundingClientRect(),sticky=row.cells[1]?.getBoundingClientRect();
+  if(r&&vr.width){const right=Math.min(vr.right,sticky?.left||vr.right)-10;if(r.left<vr.left+10)viewport.scrollLeft-=vr.left+10-r.left;else if(r.right>right)viewport.scrollLeft+=r.right-right}
+  // Raise the workspace itself, keeping the current and previous row in view.
+  const modal=shell.closest('#bulkCashModal'),dialog=shell.closest('.bulk-cash-dialog');
+  if(modal&&!modal.matches('.bulk-manual-mode,.bulk-grid-expanded')&&dialog){const sr=shell.getBoundingClientRect(),dr=dialog.getBoundingClientRect();dialog.scrollTop+=Math.max(0,sr.top-dr.top-70)}
+  positionPicker();sync();
+ }
  try{zoom=Math.max(60,Math.min(140,Number(localStorage.getItem('peymanyar.gridZoom'))||100))}catch{}
  function sync(){
   if(!current?.viewport.isConnected)return;
@@ -19,6 +51,8 @@
   try{localStorage.setItem('peymanyar.gridZoom',String(zoom))}catch{}
  }
  window.PeymanyarBulkGrid={
+  revealRow,
+  placePicker(panel,input){picker=panel;pickerInput=input;panel.classList.add('bulk-floating-picker');(input.closest('#bulkCashModal')||document.body).append(panel);positionPicker()},
   capture(box){const viewport=box.querySelector('.bulk-grid-viewport');return viewport?{left:viewport.scrollLeft,top:viewport.scrollTop}:null},
   mount(box,position){
    observer?.disconnect();
@@ -40,11 +74,15 @@
    shell.querySelector('[data-pan="left"]').onclick=()=>{viewport.scrollLeft-=Math.max(100,viewport.clientWidth*.65);sync()};
    shell.querySelector('[data-pan="right"]').onclick=()=>{viewport.scrollLeft+=Math.max(100,viewport.clientWidth*.65);sync()};
    viewport.addEventListener('scroll',sync,{passive:true});
-   viewport.addEventListener('focusin',e=>{table.querySelectorAll('.bulk-active-row').forEach(r=>r.classList.remove('bulk-active-row'));e.target.closest('tbody tr')?.classList.add('bulk-active-row')});
+   viewport.addEventListener('focusin',e=>{table.querySelectorAll('.bulk-active-row').forEach(r=>r.classList.remove('bulk-active-row'));const row=e.target.closest('tbody tr');row?.classList.add('bulk-active-row');if(row){const index=[...table.querySelectorAll('tbody tr')].indexOf(row),key=(e.target.getAttribute('aria-label')||'date').split(' ')[0];revealRow(index,key)}});
    viewport.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('bulk-grid-expanded')){modal.classList.remove('bulk-grid-expanded');expandLabel();sync()}});
    setZoom(zoom);viewport.scrollTop=position?.top||0;viewport.scrollLeft=position?position.left:Math.max(0,viewport.scrollWidth-viewport.clientWidth);sync();
-   if(typeof ResizeObserver==='function'){observer=new ResizeObserver(sync);observer.observe(viewport);observer.observe(table)}
+   resizeWorkspace();if(typeof ResizeObserver==='function'){observer=new ResizeObserver(()=>{sync();positionPicker()});observer.observe(viewport);observer.observe(table)}
   }
  };
- window.addEventListener('resize',sync,{passive:true});
+ function resized(){resizeWorkspace();sync();const input=document.activeElement;if(input?.closest('.bulk-edit-table')){const label=input.getAttribute('aria-label')||'',match=label.match(/^(\w+) ردیف (\d+)$/);if(match)revealRow(Number(match[2])-1,match[1])}positionPicker()}
+ window.addEventListener('resize',resized,{passive:true});
+ window.visualViewport?.addEventListener('resize',resized,{passive:true});window.visualViewport?.addEventListener('scroll',resized,{passive:true});
+ document.addEventListener('scroll',positionPicker,{capture:true,passive:true});
 })();
+
