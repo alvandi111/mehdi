@@ -24,6 +24,7 @@
   if(!current?.viewport.isConnected)return;
   resizeWorkspace();
   const {viewport,table,shell}=current,rows=table.querySelectorAll('tbody tr'),row=rows[index];if(!row)return;
+  syncTail();
   const previous=rows[Math.max(0,index-1)],head=table.querySelector('thead'),vr=viewport.getBoundingClientRect();
   viewport.scrollTop=Math.max(0,viewport.scrollTop+previous.getBoundingClientRect().top-vr.top-(head?.getBoundingClientRect().height||0));
   const input=row.querySelector(`[aria-label="${key} ردیف ${index+1}"]`),r=input?.getBoundingClientRect(),sticky=row.cells[1]?.getBoundingClientRect();
@@ -34,8 +35,19 @@
   positionPicker();sync();
  }
  try{zoom=Math.max(60,Math.min(140,Number(localStorage.getItem('peymanyar.gridZoom'))||100))}catch{}
+ function syncTail(){
+  if(!current?.viewport.isConnected)return;
+  const {viewport,table,tail}=current,rows=table.querySelectorAll('tbody tr');
+  const head=table.querySelector('thead')?.getBoundingClientRect().height||0;
+  const last=rows[rows.length-1]?.getBoundingClientRect().height||0,previous=rows[rows.length-2]?.getBoundingClientRect().height||0;
+  // Browsers clamp scrollTop at the end. Reserve blank space so the last
+  // real row can sit second, directly beneath its previous row.
+  const height=Math.max(0,viewport.clientHeight-head-last-previous);
+  if(tail.style.height!==height+'px')tail.style.height=height+'px';
+ }
  function sync(){
   if(!current?.viewport.isConnected)return;
+  syncTail();
   const {viewport,pan}=current,max=Math.max(0,viewport.scrollWidth-viewport.clientWidth);
   pan.max=String(max);pan.value=String(Math.max(0,viewport.scrollLeft));pan.disabled=max<2;
   pan.setAttribute('aria-valuetext',max<2?'تمام ستون‌ها دیده می‌شوند':`موقعیت افقی ${Math.round(Number(pan.value)/max*100)} درصد`);
@@ -62,7 +74,8 @@
    shell.innerHTML=`<div class="bulk-grid-toolbar"><strong>جدول تنخواه</strong><div class="bulk-zoom-controls" role="group" aria-label="بزرگ‌نمایی جدول"><button type="button" data-zoom="minus" aria-label="کوچک‌تر کردن جدول">−</button><input class="bulk-zoom-range" type="range" min="60" max="140" step="5" aria-label="درصد بزرگ‌نمایی جدول"><output class="bulk-zoom-value"></output><button type="button" data-zoom="plus" aria-label="بزرگ‌تر کردن جدول">＋</button><button type="button" data-zoom="reset">۱۰۰٪</button></div><button type="button" class="bulk-grid-expand" aria-pressed="false">⛶ نمای بزرگ</button></div>`;
    viewport.classList.add('bulk-grid-viewport');viewport.dir='ltr';viewport.tabIndex=0;viewport.setAttribute('role','region');viewport.setAttribute('aria-label','جدول قابل پیمایش در هر دو جهت');table.dir='rtl';shell.append(viewport);
    shell.insertAdjacentHTML('beforeend',`<div class="bulk-grid-pan"><span>جابجایی ستون‌ها</span><button type="button" data-pan="left" aria-label="حرکت جدول به چپ">←</button><input type="range" min="0" max="0" step="1" value="0" dir="ltr" aria-label="جابجایی افقی جدول"><button type="button" data-pan="right" aria-label="حرکت جدول به راست">→</button></div>`);
-   current={shell,viewport,table,pan:shell.querySelector('.bulk-grid-pan input')};
+   const tail=document.createElement('div');tail.className='bulk-grid-tail';tail.setAttribute('aria-hidden','true');tail.style.cssText='width:1px;pointer-events:none';viewport.append(tail);
+   current={shell,viewport,table,tail,pan:shell.querySelector('.bulk-grid-pan input')};
    const expand=shell.querySelector('.bulk-grid-expand'),modal=box.closest('#bulkCashModal');
    function expandLabel(){const expanded=modal.classList.contains('bulk-grid-expanded');expand.textContent=expanded?'⛶ بازگشت به فرم':'⛶ نمای بزرگ';expand.setAttribute('aria-pressed',String(expanded))}
    expand.onclick=()=>{modal.classList.toggle('bulk-grid-expanded');expandLabel();sync()};expandLabel();
