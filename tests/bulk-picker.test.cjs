@@ -6,7 +6,7 @@ w.confirm = () => true; w.alert = () => {}; w.matchMedia = () => ({ matches: fal
 const observers = [], Observer = w.MutationObserver;
 w.MutationObserver = class extends Observer { constructor(callback) { super(callback); observers.push(this); } };
 const root = process.env.LEDGER_SOURCE_ROOT || path.join(__dirname, '..');
-for (const f of ['workspace-engine.js', 'collaboration-engine.js', 'command-engine.js', 'contract-engine.js', 'receipt-date.js', 'app.js', 'daily-voice.js', 'persian-calendar.js', 'receipt-transport.js', 'live-dictation.js', 'entity-editor.js', 'financial-ledger.js', 'bulk-entry.js', 'bulk-grid.js']) {
+for (const f of ['workspace-engine.js', 'collaboration-engine.js', 'command-engine.js', 'contract-engine.js', 'receipt-date.js', 'app.js', 'daily-voice.js', 'persian-calendar.js', 'receipt-transport.js', 'live-dictation.js', 'entity-editor.js', 'financial-ledger.js', 'bulk-voice-parser.js','bulk-entry.js', 'bulk-grid.js']) {
   const script = w.document.createElement('script');
   script.textContent = fs.readFileSync(f === 'bulk-entry.js' && process.env.BULK_ENTRY_SOURCE ? process.env.BULK_ENTRY_SOURCE : path.join(root, f), 'utf8');
   w.document.body.appendChild(script);
@@ -50,3 +50,4 @@ assert.equal(db.people.length, 2, 'typing an unselected new name still creates i
 assert.equal(db.transactions[2].party, 'حساب تازه');
 console.log('PASS: clicked/keyboard suggestions replace prefixes, delayed change preserves selection, save links existing accounts, new names remain supported');
 observers.forEach(observer => observer.disconnect()); w.close();
+

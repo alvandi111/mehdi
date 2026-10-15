@@ -11,9 +11,10 @@ assert.equal(engine.amountOf('مبلغ دو میلیون و اشتباه باب�
 const {JSDOM}=require('../../voice-test-runtime/node_modules/jsdom');
 const w=new JSDOM('<div id="app"></div><div id="toast"></div>',{url:'https://alvandi111.github.io/mehdi/',runScripts:'dangerously'}).window;
 w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.scrollTo=()=>{};w.matchMedia=()=>({matches:false,addEventListener(){}});
-for(const f of ['workspace-engine.js','collaboration-engine.js','command-engine.js','contract-engine.js','receipt-date.js','app.js','daily-voice.js','persian-calendar.js','receipt-transport.js','live-dictation.js','entity-editor.js','financial-ledger.js','bulk-entry.js','dashboard-cash.js','project-merge.js']){const el=w.document.createElement('script');el.textContent=fs.readFileSync(path.join(__dirname,'..',f),'utf8');w.document.body.appendChild(el)}
+const observers=[],OriginalObserver=w.MutationObserver;w.MutationObserver=class extends OriginalObserver{constructor(cb){super(cb);observers.push(this)}};for(const f of ['workspace-engine.js','collaboration-engine.js','command-engine.js','contract-engine.js','receipt-date.js','app.js','daily-voice.js','persian-calendar.js','receipt-transport.js','live-dictation.js','entity-editor.js','financial-ledger.js','bulk-voice-parser.js','bulk-entry.js','dashboard-cash.js','project-merge.js']){const el=w.document.createElement('script');el.textContent=fs.readFileSync(path.join(__dirname,'..',f),'utf8');w.document.body.appendChild(el)}
 const db=w.eval('db');db.projects=data.projects;db.people=[];db.transactions=[];
 w.document.body.insertAdjacentHTML('beforeend','<textarea id="quickText"></textarea><div id="parsedResult"></div>');w.document.getElementById('quickText').value=text;w.parseQuick();
 const html=w.document.getElementById('parsedResult').textContent;
 assert.match(html,/آرشام/);assert.match(html,/کرایه بالابر/);assert.match(html,/واحد بخش آخر/);assert.equal(w.parsedCommand.amount,2400000);assert.equal(db.transactions.length,0);
-console.log('PASS: screenshot project priority, aliases, compound amount, explicit units, rental category, review warning and actual app draft without saving');w.close();
+console.log('PASS: screenshot project priority, aliases, compound amount, explicit units, rental category, review warning and actual app draft without saving');observers.forEach(o=>o.disconnect());w.close();
+
