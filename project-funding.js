@@ -6,7 +6,7 @@
  function sum(rows){let received=0,paid=0,directPaid=0;for(const t of rows){const a=Number(t.amount)||0;if(t.kind==='income')received+=a;if(t.kind==='expense'){paid+=a;if(direct(t))directPaid+=a}}return {received,paid,directPaid,cashPaid:paid-directPaid,cashBalance:received-paid+directPaid,funded:received+directPaid,projectReceived:received+directPaid}}
  reportSummary=sum;
  totals=function(){const s=sum(db.transactions);return {income:s.projectReceived,cashIncome:s.received,expense:s.paid,directPaid:s.directPaid,cashExpense:s.cashPaid,cashBalance:s.cashBalance}};
- function projectSummary(id,to=''){const p=db.projects.find(p=>eq(p.id,id));if(!p)return null;const rows=db.transactions.filter(t=>t.project===p.name&&(!to||normalizeDateValue(t.date)&&normalizeDateValue(t.date)<=to));const s=sum(rows),base=rows.filter(t=>t.kind==='expense'&&t.managementFeeEligible!==false&&!t.isManagementFee).reduce((a,t)=>a+(Number(t.amount)||0),0),rate=p.managementFeePercent==null?null:Number(p.managementFeePercent);return {...s,base,rate,fee:rate==null?null:Math.round(base*rate/100)}}
+ function projectSummary(id,to=''){const p=db.projects.find(p=>eq(p.id,id));if(!p)return null;const rows=db.transactions.filter(t=>(window.PeymanyarLinks?PeymanyarLinks.projectMatch(t,p.id):t.projectId!=null?eq(t.projectId,p.id):t.project===p.name)&&(!to||normalizeDateValue(t.date)&&normalizeDateValue(t.date)<=to));const s=sum(rows),base=rows.filter(t=>t.kind==='expense'&&t.managementFeeEligible!==false&&!t.isManagementFee).reduce((a,t)=>a+(Number(t.amount)||0),0),rate=p.managementFeePercent==null?null:Number(p.managementFeePercent);return {...s,base,rate,fee:rate==null?null:Math.round(base*rate/100)}}
  function modal(title,body){document.getElementById('projectFundingModal')?.remove();document.body.insertAdjacentHTML('beforeend',`<div class="modal" id="projectFundingModal"><div class="dialog" role="dialog" aria-modal="true"><div class="dialog-head"><h2>${esc(title)}</h2><button class="close" onclick="document.getElementById('projectFundingModal').remove()">×</button></div>${body}</div></div>`)}
  const opts=(rows,value,key='name')=>rows.map(p=>`<option value="${esc(p[key])}" ${eq(p[key],value)?'selected':''}>${esc(p.name)}</option>`).join('');
  window.openProjectFee=function(id){const p=db.projects.find(p=>eq(p.id,id));if(!p)return;modal('درصد مدیریت پیمان — '+p.name,`${field('درصد مدیریت پیمان',`<input id="pfRate" inputmode="decimal" value="${esc(p.managementFeePercent??'')}" placeholder="مثلاً ۱۵">`)}<p>مبنای محاسبه: هزینه‌های پروژه، شامل پرداخت مستقیم کارفرما. دریافتی‌ها، صورت‌وضعیت‌های پرداخت‌نشده و خودِ حق مدیریت دوباره در مبنا جمع نمی‌شوند. این محاسبه به‌تنهایی تراکنش مالی ایجاد نمی‌کند.</p><button class="btn primary" onclick="saveProjectFee(${Number(p.id)})">ذخیره درصد</button>`)};
@@ -22,4 +22,5 @@
  window.PeymanyarFunding={sum,projectSummary,isDirect:direct};
  render();
 })();
+
 
