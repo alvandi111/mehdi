@@ -3,8 +3,8 @@
  const current=document.querySelector('meta[name="app-revision"]')?.content;
  let checking=false,pending='',lastCheck=0;
  const busy=()=>!!document.querySelector('.modal, [role="dialog"], input:not([type="hidden"]), textarea, select, [contenteditable="true"]');
- function reload(revision){const url=new URL(location.href);url.searchParams.set('v',revision||current);url.searchParams.set('refresh',String(Date.now()));location.replace(url.href)}
- window.refreshPeymanyarApp=function(){if(busy()&&!confirm('صفحه دوباره باز می‌شود. ابتدا اطلاعات فرم را ثبت کن؛ ادامه می‌دهی؟'))return;reload(pending||current)};
+ function reload(revision){if(window.PeymanyarCashDraft&&!PeymanyarCashDraft.beforeRefresh())return;const url=new URL(location.href);url.searchParams.set('v',revision||current);url.searchParams.set('refresh',String(Date.now()));location.replace(url.href)}
+ window.refreshPeymanyarApp=function(){if(busy()&&!confirm(document.getElementById('bulkCashModal')&&window.PeymanyarCashDraft?'پیش‌نویس تنخواه ذخیره و صفحه دوباره باز شود؟':'صفحه دوباره باز می‌شود. ابتدا اطلاعات فرم را ثبت کن؛ ادامه می‌دهی؟'))return;reload(pending||current)};
  async function check(){
   if(checking||document.hidden||Date.now()-lastCheck<10000)return;
   checking=true;lastCheck=Date.now();
@@ -22,3 +22,4 @@
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});
  check();
 })();
+
