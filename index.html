@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="app-revision" content="125">
+  <meta name="app-revision" content="126">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes,viewport-fit=cover">
   <meta name="theme-color" content="#17362f">
   <meta name="description" content="پیمان‌یار؛ مدیریت پروژه، هزینه، قرارداد و گزارش روزانه کارگاه">
@@ -16,9 +16,58 @@
   <link rel="stylesheet" href="project-hub.css?v=106">
   <link rel="stylesheet" href="secretariat.css?v=111">
   <link rel="stylesheet" href="cheque-book.css?v=121">
+  <style id="peymanyarIntroStyle">
+    #peymanyarIntro[hidden]{display:none!important}
+    #peymanyarIntro{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:#17362f;isolation:isolate;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom);box-sizing:border-box}
+    #peymanyarIntroVideo{display:block;width:min(94vw,76vh,680px);height:auto;max-width:100%;max-height:86vh;object-fit:contain;background:#17362f}
+    #peymanyarIntroSkip{position:absolute;bottom:max(24px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);border:1px solid #e2c99566;border-radius:999px;padding:10px 22px;min-height:44px;color:#ead3a0;background:#17362f;font:inherit;cursor:pointer;white-space:nowrap}
+    #peymanyarIntroSkip:focus-visible{outline:2px solid #ead3a0;outline-offset:4px}
+    @media(orientation:landscape) and (max-height:500px){#peymanyarIntroVideo{max-height:92vh;width:auto}#peymanyarIntroSkip{left:auto;right:16px;transform:none;bottom:16px}}
+  </style>
 </head>
 <body>
   <div id="app"></div>
+  <section id="peymanyarIntro" hidden role="dialog" aria-modal="true" aria-label="به پیمان‌یار خوش آمدید">
+    <video id="peymanyarIntroVideo" muted autoplay playsinline webkit-playsinline preload="auto" poster="assets/peymanyar-intro-126.jpg" aria-label="رسم اسکچ پیمان‌یار؛ از زون دیزاین">
+      <source src="assets/peymanyar-intro-126.mp4" type="video/mp4">
+    </video>
+    <button id="peymanyarIntroSkip" type="button">ورود به برنامه</button>
+  </section>
+  <script id="peymanyarIntroController">
+  (function(){
+    'use strict';
+    const intro=document.getElementById('peymanyarIntro'),video=document.getElementById('peymanyarIntroVideo'),app=document.getElementById('app');
+    if(!intro||!video||!app)return;
+    let done=false,timer;
+    const wasInert=app.hasAttribute('inert'),previousAria=app.getAttribute('aria-hidden');
+    function finish(){
+      if(done)return;done=true;clearTimeout(timer);
+      document.removeEventListener('keydown',escape);document.removeEventListener('visibilitychange',visibility);
+      try{video.pause()}catch(e){}
+      intro.remove();
+      if(!wasInert)app.removeAttribute('inert');
+      if(previousAria===null)app.removeAttribute('aria-hidden');else app.setAttribute('aria-hidden',previousAria);
+    }
+    function escape(e){if(e.key==='Escape')finish()}
+    function visibility(){if(document.hidden)finish()}
+    // The app starts underneath immediately. Media never gates data loading.
+    timer=setTimeout(finish,4300);
+    try{
+      intro.hidden=false;app.setAttribute('inert','');app.setAttribute('aria-hidden','true');
+      document.getElementById('peymanyarIntroSkip').addEventListener('click',finish);
+      document.addEventListener('keydown',escape);document.addEventListener('visibilitychange',visibility);
+      video.addEventListener('ended',finish,{once:true});
+      video.addEventListener('error',finish,{once:true});
+      video.querySelector('source')?.addEventListener('error',finish,{once:true});
+      if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){
+        video.autoplay=false;video.removeAttribute('autoplay');video.pause();clearTimeout(timer);timer=setTimeout(finish,450);return;
+      }
+      video.muted=true;video.defaultMuted=true;video.playsInline=true;
+      const playing=video.play();if(playing?.catch)playing.catch(finish);
+    }catch(e){finish()}
+  })();
+  </script>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="workspace-engine.js?v=28"></script>
   <script src="collaboration-engine.js?v=28"></script>
@@ -66,6 +115,7 @@
   <script src="app-update.js?v=123-draft-refresh"></script>
 </body>
 </html>
+
 
 
 
