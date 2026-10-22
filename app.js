@@ -1,4 +1,4 @@
-const STORAGE='peymanyar-v1-data';
+const STORAGE=window.PeymanyarAccountStorage||'peymanyar-v1-data';
 const fa=n=>new Intl.NumberFormat('fa-IR').format(Number(n||0));
 const money=n=>`${fa(n)} تومان`;
 const uid=()=>Date.now()+Math.floor(Math.random()*1000);
@@ -87,7 +87,7 @@ async function startVoice(){
  recognition.onend=()=>{const text=input.value.trim();voiceRecognition=null;setVoiceState(text?'صدا به متن تبدیل شد؛ در حال تحلیل فرمان…':'ضبط تمام شد اما متنی دریافت نشد.');if(text)setTimeout(parseQuick,250)};
  try{recognition.start()}catch(err){setVoiceState('میکروفن آماده نشد؛ صفحه را تازه‌سازی و دوباره امتحان کن.')}
 }
-const FILE_DB='peymanyar-documents',FILE_STORE='files',memoryFiles=new Map();let viewerScale=1,viewerUrl='',pinchStart=0,pinchScale=1;
+const FILE_DB=STORAGE==='peymanyar-v1-data'?'peymanyar-documents':STORAGE+'-documents',FILE_STORE='files',memoryFiles=new Map();let viewerScale=1,viewerUrl='',pinchStart=0,pinchScale=1;
 function openFileDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(FILE_DB,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(FILE_STORE))req.result.createObjectStore(FILE_STORE,{keyPath:'id'})};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 async function storeFile(id,file){const idb=await openFileDB();return new Promise((resolve,reject)=>{const tx=idb.transaction(FILE_STORE,'readwrite');tx.objectStore(FILE_STORE).put({id,blob:file,type:file.type,name:file.name});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
 async function readFile(id){const idb=await openFileDB();return new Promise((resolve,reject)=>{const req=idb.transaction(FILE_STORE,'readonly').objectStore(FILE_STORE).get(id);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
