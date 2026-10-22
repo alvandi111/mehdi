@@ -65,9 +65,9 @@ begin
  elsif action='revoke_invite' then
   update peymanyar_private.invites set disabled=true where id=(args->>'id')::uuid;
  elsif action='list_invites' then
-  return coalesce((select jsonb_agg(to_jsonb(t)) from (select id,label,email,trial_days,max_uses,uses,valid_until,disabled,created_at from peymanyar_private.invites order by created_at desc limit 100)t),'[]');
+  return coalesce((select jsonb_agg(to_jsonb(t)) from (select inv.id,inv.label,inv.email,inv.trial_days,inv.max_uses,inv.uses,inv.valid_until,inv.disabled,inv.created_at from peymanyar_private.invites inv order by inv.created_at desc limit 100)t),'[]');
  elsif action='list_users' then
-  return coalesce((select jsonb_agg(to_jsonb(t)) from (select l.*,a.email,exists(select from peymanyar_private.admins ad where ad.user_id=l.user_id) as admin,coalesce((select jsonb_object_agg(feature,used) from peymanyar_private.usage x where x.user_id=l.user_id and month=mon),'{}') as usage from peymanyar_private.licences l join auth.users a on a.id=l.user_id order by l.created_at desc limit 500)t),'[]');
+  return coalesce((select jsonb_agg(to_jsonb(t)) from (select lic.*,a.email,exists(select from peymanyar_private.admins ad where ad.user_id=lic.user_id) as admin,coalesce((select jsonb_object_agg(x.feature,x.used) from peymanyar_private.usage x where x.user_id=lic.user_id and x.month=mon),'{}') as usage from peymanyar_private.licences lic join auth.users a on a.id=lic.user_id order by lic.created_at desc limit 500)t),'[]');
  elsif action='set_user' then
   target:=(args->>'user_id')::uuid;
   if exists(select from peymanyar_private.admins where user_id=target) then raise exception 'owner_protected';end if;

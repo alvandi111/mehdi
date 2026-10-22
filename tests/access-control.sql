@@ -4,7 +4,14 @@ insert into auth.users(id,aud,role,email,email_confirmed_at,raw_app_meta_data,ra
 ('00000000-0000-4000-8000-000000000101','authenticated','authenticated','peymanyar-test1@example.invalid',now(),'{}','{}',now(),now()),
 ('00000000-0000-4000-8000-000000000102','authenticated','authenticated','peymanyar-test2@example.invalid',now(),'{}','{}',now(),now());
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('peymanyar.test.owner'),'role','authenticated')::text,true);
+-- Exercise every owner panel query, including the empty invite list.
+do $$begin
+ if jsonb_typeof(public.peymanyar_access('list_users'))<>'array' then raise exception 'TEST_users_panel';end if;
+ if jsonb_typeof(public.peymanyar_access('list_invites'))<>'array' then raise exception 'TEST_invites_panel';end if;
+ if jsonb_typeof(public.peymanyar_access('audit'))<>'array' then raise exception 'TEST_audit_panel';end if;
+end$$;
 select set_config('peymanyar.test.invite',(public.peymanyar_access('create_invite','{"max_uses":1,"days":60,"speech_limit":1}') ->> 'token'),true);
+select public.peymanyar_access('list_invites');
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000101","role":"authenticated"}',true);
 set local role authenticated;
 select public.peymanyar_access('state');
