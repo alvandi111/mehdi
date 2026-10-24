@@ -2,3 +2,6 @@
 
 /* Authentication must stay above the signed-out invitation gate. */
 #cloudLoginModal,#cloudAccountModal,#cloudPasswordModal{z-index:10020}
+
+/* Keep financial entry scroll inside the dialog on touch devices. */
+#modal .dialog{overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;max-height:calc(100dvh - 36px)}

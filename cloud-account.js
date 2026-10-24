@@ -5,7 +5,7 @@
  const client=window.PeymanyarSupabase?.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'peymanyar-auth'}});
  let user=null,busy=false,note='ورود حساب برای ذخیرهٔ مرکزی',timer=null,lastJSON='',epoch=0,authPhase='loading',booting=null;
  const getBinding=()=>{try{return JSON.parse(localStorage.getItem(BIND)||'null')}catch{return null}};
- const fail=e=>{const m=e?.message||String(e);return /revision_conflict/.test(m)?'نسخهٔ سرور در دستگاه دیگری تغییر کرده است. ابتدا پشتیبان کامل بگیر، سپس نسخهٔ سرور را بررسی و بازگردانی کن.':/schema cache|does not exist|PGRST202|PGRST205/.test(m)?'راه‌اندازی دیتابیس هنوز تکمیل نشده است؛ فایل SQL اتصال باید در Supabase اجرا شود.':/Failed to fetch|network|fetch/i.test(m)?'ارتباط با سرور برقرار نشد. اطلاعات در این مرورگر محفوظ است؛ دوباره تلاش کن.':/email.*rate|rate.*limit/i.test(m)?'محدودیت ارسال ایمیل؛ کمی بعد دوباره تلاش کن.':m};
+ const fail=e=>{const m=e?.message||String(e);return /sync_conflict/.test(m)?'یک مورد در دو دستگاه متفاوت ویرایش شده است؛ هیچ نسخه‌ای حذف نشد. پیش از ادامه، اختلاف این مورد باید بررسی شود.':/revision_conflict/.test(m)?'نسخهٔ سرور در دستگاه دیگری تغییر کرده است. ابتدا پشتیبان کامل بگیر، سپس نسخهٔ سرور را بررسی و بازگردانی کن.':/schema cache|does not exist|PGRST202|PGRST205/.test(m)?'راه‌اندازی دیتابیس هنوز تکمیل نشده است؛ فایل SQL اتصال باید در Supabase اجرا شود.':/Failed to fetch|network|fetch/i.test(m)?'ارتباط با سرور برقرار نشد. اطلاعات در این مرورگر محفوظ است؛ دوباره تلاش کن.':/email.*rate|rate.*limit/i.test(m)?'محدودیت ارسال ایمیل؛ کمی بعد دوباره تلاش کن.':m};
  function status(text){note=text;statusSequence++;updateCloudFeedback(text);document.querySelectorAll('#cloudStatus,#cloudLoginStatus,#cloudAccountStatus').forEach(el=>el.textContent=text);const badge=document.getElementById('cloudBadge');if(badge)badge.textContent=text}
 
  let feedbackTicket=null,feedbackBusy=false,statusSequence=0;
@@ -39,7 +39,7 @@
 
  function card(){const binding=getBinding(),active=user&&binding?.userId===user.id;return `<section class="card" id="cloudAccount" style="margin-bottom:16px"><h3>حساب و ذخیرهٔ مرکزی</h3><details style="margin-bottom:12px"><summary>راه‌اندازی اولیهٔ اتصال</summary><p>فایل راه‌اندازی را در SQL Editor پروژهٔ Supabase اجرا کن؛ سپس وارد حساب شو.</p><button class="btn" onclick="openCloudSetup()">نمایش کد راه‌اندازی</button><button class="btn" onclick="openCloudOTPSetup()">راه‌اندازی کد ایمیل</button></details><p id="cloudStatus" role="status" style="line-height:1.9">${esc(note)}</p><button class="btn primary" id="cloudUploadButton" onclick="cloudUploadPersonal()" ${busy?'disabled':''}>ذخیرهٔ اطلاعات این دستگاه در حساب</button><p class="muted">این دکمه را در همان گوشی یا مرورگری بزن که پروژه‌ها و پرداخت‌هایت در آن دیده می‌شوند. برای انتقال، باید وارد حساب خودت باشی.</p>${!client?'<p>کتابخانهٔ اتصال بارگذاری نشده است؛ صفحه را تازه‌سازی کن.</p>':!user?`<p>برای دسترسی به دفتر خودت روی گوشی و دسکتاپ، با ایمیل تأییدشده وارد شو.</p><button class="btn primary" onclick="openCloudLogin()">ورود / Sign In</button>`:`<p dir="ltr">${esc(user.email||'')}</p><p>${active?'همگام‌سازی گوشی و دسکتاپ فعال است؛ تغییرات دستگاه دیگر هر ۱۵ ثانیه بررسی می‌شود.':'اتصال اولیه در حال بررسی است؛ اطلاعات ذخیره‌شدهٔ حساب روی دستگاه خالی خودکار دریافت می‌شود.'}</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="cloudRestorePersonal()" ${busy?'disabled':''}>دریافت اطلاعات از حساب</button><button class="btn" onclick="cloudSyncNow()">همگام‌سازی اکنون</button><button class="btn" id="cloudUseDeviceButton" onclick="cloudUseThisDevice()" ${busy?'disabled':''}>نسخهٔ این دستگاه را اصلی کن</button><button class="btn" onclick="openCloudPassword()">تعیین رمز عبور</button><button class="btn" onclick="cloudSignOut()">خروج حساب</button><button class="btn" onclick="cloudSwitchAccount()">ورود با ایمیل دیگر</button></div>`}<p style="font-size:13px;line-height:1.9">این مرحله دفتر خصوصی هر حساب است؛ اشتراک دفتر بین همکاران هنوز فعال نیست. فایل رسیدها خصوصی ذخیره می‌شوند. تا پیام موفقیت سرور نمایش داده نشود، پشتیبان محلی را نگه دار.</p></section>`}
  function accountLabel(){return authPhase==='loading'?'بررسی حساب…':user?'حساب من':'ورود / Sign In'}
- function refresh(){if(page==='settings')render();else status(note);document.querySelectorAll('[data-cloud-login]').forEach(el=>{el.textContent=accountLabel();el.disabled=authPhase==='loading';el.setAttribute('onclick',user?'openCloudAccountMenu()':'openCloudLogin()');el.setAttribute('aria-label',user?'حساب من، خروج و تغییر حساب':'ورود به حساب')})}
+ function refresh(){if(page==='settings'&&!editing())render();else status(note);document.querySelectorAll('[data-cloud-login]').forEach(el=>{el.textContent=accountLabel();el.disabled=authPhase==='loading';el.setAttribute('onclick',user?'openCloudAccountMenu()':'openCloudLogin()');el.setAttribute('aria-label',user?'حساب من، خروج و تغییر حساب':'ورود به حساب')})}
  function sessionUI(session){const next=session?.user||null;if(window.PeymanyarInitialUser!==undefined&&(next?.id||null)!==window.PeymanyarInitialUser){document.body.classList.add('access-checking');location.reload();return;}if(next?.id!==user?.id)epoch++;user=next;authPhase=next?'signed-in':'signed-out';if(next)document.getElementById('cloudLoginModal')?.remove();else{document.getElementById('cloudAccountModal')?.remove();document.getElementById('cloudPasswordModal')?.remove()}refresh()}
  window.openCloudAccountMenu=function(){if(!user)return openCloudLogin();document.getElementById('cloudAccountModal')?.remove();document.body.insertAdjacentHTML('beforeend',`<div class="modal" id="cloudAccountModal"><div class="dialog cloud-login-dialog" role="dialog" aria-modal="true" aria-labelledby="cloudAccountTitle"><div class="dialog-head"><h2 id="cloudAccountTitle">حساب من</h2><button class="close" aria-label="بستن" onclick="document.getElementById('cloudAccountModal').remove()">×</button></div><p>وارد این حساب شده‌ای:</p><p id="cloudAccountStatus" role="status"></p><p dir="ltr">${esc(user.email||'')}</p><div style="display:grid;gap:12px"><button class="btn" onclick="document.getElementById('cloudAccountModal').remove();go('settings')">تنظیمات و پشتیبان</button><button class="btn" onclick="document.getElementById('cloudAccountModal').remove();openCloudPassword()">تعیین یا تغییر رمز</button><button class="btn" onclick="cloudSignOut()">خروج از حساب</button><button class="btn" onclick="cloudSwitchAccount()">خروج و ورود با ایمیل دیگر</button></div><p class="muted">برای استفاده از همین حساب، نیازی به دریافت کد یا ورود دوباره نیست.</p></div></div>`)};
  window.cloudSwitchAccount=async function(){if(await cloudSignOut())openCloudLogin()};
@@ -112,6 +112,7 @@
     const empty=['projects','people','transactions','contracts','daily','documents'].every(k=>Array.isArray(db[k])&&db[k].length===0);
     const owner=localStorage.getItem(OWNER);
     if(owner&&owner!==id&&!empty){status('اطلاعات محلی متعلق به حساب دیگری است؛ برای جایگزینی از «دریافت اطلاعات از حساب» استفاده کن.');return false}
+    if(!row&&STORAGE==='peymanyar-account:'+id){localStorage.setItem(BIND,JSON.stringify({userId:id,revision:0}));localStorage.setItem(OWNER,id);return await push()}
     if(row&&empty){if(editing())return false;return await pull(true,local,id)}
     if(row&&canonical(row.payload)===canonical(JSON.parse(local))){localStorage.setItem(BIND,JSON.stringify({userId:id,revision:Number(row.revision)}));localStorage.setItem(OWNER,id);localStorage.setItem(BASE,local);lastJSON=local;status('اطلاعات این دستگاه با حساب یکسان است؛ همگام‌سازی فعال شد.');return true}
     status(row?(emptySnapshot(row)?'نسخهٔ حساب خالی است؛ اطلاعات این گوشی محفوظ است. برای انتقال، «ذخیرهٔ اطلاعات این دستگاه در حساب» را بزن.':'این دستگاه و حساب اطلاعات متفاوت دارند؛ اطلاعات محلی حفظ شد. ابتدا پشتیبان بگیر، سپس نسخهٔ حساب را دریافت کن.'):empty?'حساب هنوز اطلاعاتی ندارد؛ در گوشیِ دارای اطلاعات، «انتقال اطلاعات این مرورگر به حساب» را بزن.':'اطلاعات این گوشی هنوز فقط محلی است؛ یک‌بار «انتقال اطلاعات این مرورگر به حساب» را بزن تا روی دستگاه‌های دیگر هم بیاید.');return false;
@@ -122,7 +123,7 @@
    }
    lastJSON=baseline;
    if(Number(row?.revision||0)>Number(binding.revision)){
-    if(local!==baseline){status('در هر دو دستگاه تغییر وجود دارد؛ تغییرات محلی حفظ شد. برای انتخاب همین نسخه، پس از پشتیبان‌گیری «نسخهٔ این دستگاه را اصلی کن» را بزن.');return false}
+    if(local!==baseline)return await mergeRemote(row,local,baseline,id,token);
     if(editing()){status('تغییرات دستگاه دیگر آمادهٔ دریافت است؛ پس از پایان ویرایش دریافت می‌شود.');return false}
     return await pull(true,local,id);
    }
@@ -130,6 +131,29 @@
    if(local!==baseline)return await push();
    status('همگام‌سازی فعال • آخرین بررسی '+new Date().toLocaleTimeString('fa-IR'));return true;
   }catch(e){status(fail(e));return false}finally{checking=false}
+ }
+ async function mergeRemote(row,local,baseline,id,token){
+  if(editing()){status('تغییرات دستگاه دیگر پس از بستن فرم دریافت می‌شود؛ فرم محفوظ است.');return false}
+  const merged=window.PeymanyarMerge.merge(JSON.parse(baseline),JSON.parse(local),row.payload);
+  busy=true;
+  try{
+   const pack=await PeymanyarBackup.pack(),files=new Map(pack.files.map(r=>[String(r.id),r]));
+   for(const r of row.files||[]){
+    if(typeof r.path!=='string'||!r.path.startsWith(id+'/'))throw Error('مسیر فایل حساب معتبر نیست.');
+    const old=files.get(String(r.id));
+    if(old){if(id+'/'+await hash(blobOf(old))!==r.path)throw Error('sync_conflict:attachment');continue}
+    const {data,error}=await client.storage.from(BUCKET).download(r.path);if(error)throw error;
+    files.set(String(r.id),{...r,data:await encode(data)});
+   }
+   const latest=await remote(id);
+   if(latest?.revision!==row.revision)throw Error('revision_conflict');
+   const guard=()=>{if(token!==epoch||localStorage.getItem(STORAGE)!==local||editing())throw Error('ویرایش در حال انجام است؛ اطلاعات محلی حفظ شد.')};
+   guard();await PeymanyarBackup.restore({format:'peymanyar-portable',version:1,data:merged,files:[...files.values()]},false,guard);
+   localStorage.setItem(BASE,JSON.stringify(row.payload));
+   localStorage.setItem(BIND,JSON.stringify({userId:id,revision:Number(row.revision)}));
+   lastJSON=JSON.stringify(row.payload);
+  }finally{busy=false}
+  return push();
  }
  async function boot(){if(booting)return booting;booting=(async()=>{try{const {data,error}=await client.auth.getSession();if(error)throw error;sessionUI(data.session);if(data.session){status('وارد حساب '+(user.email||'خودت')+' شده‌ای؛ در حال بررسی همگام‌سازی…');try{await identity()}catch(e){if(e.status===401||/invalid.*jwt|session.*missing|refresh.*token.*invalid/i.test(e.message||''))sessionUI(null);throw e}if(!window.PeymanyarAccess||await window.PeymanyarAccess.refresh())await sync()}else status('وارد حساب نشده‌ای؛ پروژه‌های قابل مشاهده ممکن است فقط در همین مرورگر ذخیره باشند.')}catch(e){if(authPhase==='loading')authPhase='signed-out';status(fail(e))}finally{refresh()}})();try{return await booting}finally{booting=null}}
 
@@ -143,9 +167,9 @@
  const oldSettings=settings;settings=function(){return oldSettings().replace('ذخیرهٔ مرکزی و ورود کاربران هنوز فعال نیست.','برای ذخیرهٔ مرکزی از بخش حساب همین صفحه استفاده کن؛ اشتراک دفتر بین همکاران هنوز فعال نیست.').replace('<main class="phone-content">','<main class="phone-content">'+card())};
  const oldDashboard=dashboard;dashboard=function(){return oldDashboard().replace(/<div class="card" style="margin-bottom:14px"><strong>حفظ اطلاعات و انتقال به گوشی<\/strong>[\s\S]*?<\/div>/,'').replace('<div class="phone-head-actions">','<div class="phone-head-actions"><button type="button" class="cloud-login-button" data-cloud-login onclick="'+(user?'openCloudAccountMenu()':'openCloudLogin()')+'">'+accountLabel()+'</button>').replace('<main class="phone-content">','<main class="phone-content">'+(user?'<p id="cloudBadge" class="cloud-sync-note" role="status">'+esc(note)+'</p>':''))};
 
- const oldSave=save;save=function(){oldSave();if(user&&getBinding()?.userId===user.id){clearTimeout(timer);timer=setTimeout(()=>sync(),1500)}};
+ const oldSave=save;save=function(){oldSave();if(user){status('روی دستگاه ذخیره شد؛ در انتظار همگام‌سازی…');clearTimeout(timer);timer=setTimeout(()=>sync(),1000)}};
  const interval=setInterval(sync,15000);
- window.addEventListener('online',sync);window.addEventListener('focus',sync);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')sync()});
+ window.addEventListener('pageshow',sync);window.addEventListener('online',sync);window.addEventListener('focus',sync);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')sync()});
  window.PeymanyarCloud={push,pull:()=>pull(false),sync,boot,getBinding,card,client,stop:()=>{clearInterval(interval);clearTimeout(timer)}};
  if(client){client.auth.onAuthStateChange((event,session)=>{if(['INITIAL_SESSION','SIGNED_IN','TOKEN_REFRESHED','USER_UPDATED','PASSWORD_RECOVERY'].includes(event)){sessionUI(session);if(event==='SIGNED_IN')setTimeout(boot,0)}else if(event==='SIGNED_OUT'){sessionUI(null);status('از حساب خارج شده‌ای؛ اطلاعات محلی همچنان در مرورگر است.');refresh()}});boot()}else{authPhase='signed-out';render()}
  if(new URLSearchParams(location.search).get('settings')==='1')setTimeout(()=>{go('settings');document.getElementById('cloudAccount')?.scrollIntoView?.({block:'start'})},0);
