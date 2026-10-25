@@ -12,6 +12,21 @@ modal.dispatchEvent(new w.Event('touchmove',{bubbles:true}));modal.click();
 assert.ok(modal.isConnected,'scroll/backdrop does not dismiss finance entry');
 assert.equal(w.document.getElementById('quickText').value,'هزینه حمل');
 w.closeModal();w.openForm('transaction');modal=w.document.getElementById('modal');modal.click();assert.ok(modal.isConnected);w.closeModal();
+// Registration retains its origin; visibility toggles never submit or change values.
+w.eval('page="projectDetail";selectedProjectId=1');
+w.openQuick();w.finishQuickRegistration('ثبت شد');
+assert.equal(w.eval('page'),'projectDetail');assert.equal(w.eval('selectedProjectId'),1);
+assert.equal(w.document.getElementById('modal'),null);
+assert.ok(w.document.getElementById('app').textContent.includes('آمفی تئاتر'));
+w.openQuick();w.closeUniversalQuick();assert.equal(w.eval('page'),'projectDetail');
+w.eval('page="finance"');w.finishQuickRegistration('ثبت شد');assert.equal(w.eval('page'),'finance');
+w.eval(fs.readFileSync('credential-visibility.js','utf8'));
+w.document.body.insertAdjacentHTML('beforeend','<form id="visibilityTest"><input id="testPassword" type="password" value="test-secret"><input id="cloudCode" autocomplete="one-time-code" inputmode="numeric" value="123456"></form>');
+await new Promise(r=>setTimeout(r,0));
+const password=w.document.getElementById('testPassword'),code=w.document.getElementById('cloudCode');
+for(const field of [password,code]){const button=field.parentElement.querySelector('button');assert.ok(button);assert.equal(button.type,'button');const value=field.value,type=field.type;button.click();assert.notEqual(field.type,type);assert.equal(field.value,value);button.click();assert.equal(field.type,type);assert.equal(field.value,value)}
+assert.equal(code.inputMode,'numeric');w.document.getElementById('visibilityTest').remove();
+console.log('PASS registration origin and dynamic password/OTP visibility');
 // Simulate desktop adding a record while phone has an unsent different record.
 snapshot.payload.transactions.push({id:20,amount:200,project:'آمفی تئاتر'});snapshot.revision++;
 w.eval('db.transactions.push({id:30,amount:300,project:"آمفی تئاتر"});save()');

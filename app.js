@@ -418,7 +418,7 @@ const v27ParseQuickBase=parseQuick;parseQuick=function(){v27ParseQuickBase();con
 function finishQuickRegistration(message){
  document.querySelectorAll('.universal-dialog').forEach(dialog=>dialog.closest('.modal')?.remove());
  closeUniversalQuick();window.v21Plan=null;window.parsedCommand=null;window.parsed=null;clearTimeout(window.commandAnalysisTimer);
- go('dashboard');toast(message);
+ render();toast(message);
 }
 confirmSmartPlan=function(){const p=window.v21Plan;if(!p)return;let project=(v('spProject')||v('spProjectName')||p.project||(p.intent==='project_create'?p.name:'')||'').trim(),party=(v('spParty')||p.party||p.name||'').trim(),role=v('spRole')||p.role||(p.intent==='person_create'?'تخصص ثبت نشده':'طرف حساب'),createdProject=null,createdParty=null;
  if(project&&!db.projects.some(x=>x.name===project)){createdProject={id:uid(),name:project,client:v('spClient')||p.client||'ثبت نشده',location:p.location||'',budget:p.intent==='project_create'?p.amount||0:0,progress:0,status:'فعال',start:p.date||todayFa(),completeness:'draft'};db.projects.push(createdProject);addCompletionTask('project.details',`تکمیل مشخصات و قرارداد پروژه ${project}`,{entityId:createdProject.id,project,key:`project.details:${createdProject.id}`})}
