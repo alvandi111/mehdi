@@ -14,7 +14,14 @@
   if(head===null||tail===null||tail<100||tail>=1000)return null;
   return {amount:Math.round(head*scales[m[2]]+tail*scales[m[2]]/1000),warning:'واحد بخش آخر مبلغ گفته نشده؛ آن را بخش هزارگانهٔ واحد قبلی در نظر گرفتیم. مبلغ را پیش از تأیید بررسی یا ویرایش کن.'};
  }
- function amountOf(text){const s=digits(text).replace(/(^|\s)پونصد(?=\s|$)/g,'$1پانصد');
+ function amountOf(text){
+  // Speech engines can attach the conjunction to Persian number words.
+  const numberWords=Object.keys({...wordValues,...scales}).sort((a,b)=>b.length-a.length).join('|');
+  let s=digits(text).replace(/(^|\s)پونصد(?=\s|$)/g,'$1پانصد')
+   .replace(/(?:مبلغش|مبلغ)\s*[:：]?\s*(?:به\s+عدد\s+|برابر\s+با\s+)?/g,'مبلغ ')
+   .replace(/(\d)(?=[آ-ی])/g,'$1 ');
+  for(let i=0;i<3;i++)s=s.replace(new RegExp('(^|\\s)('+numberWords+')و(?=(?:'+numberWords+')(?:و|\\s|$))','g'),'$1$2 و ').replace(new RegExp('(^|\\s)و('+numberWords+')(?=\\s|$)','g'),'$1و $2');
+
   const spoken=spokenAmountInfo(text);if(spoken)return spoken.amount;
   // Parse the entire amount before currency, including mixed digits and words.
   const amountTokens=s.replace(/(\d)(?=[آ-ی])/g,'$1 ').split(/\s+/).map(w=>w.replace(/[.،؛؟!]$/,''));
@@ -43,6 +50,7 @@
  function entity(text,list){const source=' '+clean(text)+' ',matches=list.map(item=>({item,length:Math.max(0,...[item.name,...(item.aliases||[])].map(name=>{const n=clean(name);return n&&source.includes(' '+n+' ')?n.length:0}))})).filter(x=>x.length);if(matches.length){matches.sort((a,b)=>b.length-a.length);return matches.length===1||matches[0].length>matches[1].length?matches[0].item:null}const sourceWords=new Set(source.split(' ').filter(w=>w.length>2&&!['اوسا','استاد','آقای','خانم','مهندس','بنا','کارگر','پیمانکار','نگهبان','جوشکار','برقکار','نقاش'].includes(w)));const scored=list.map(item=>({item,hits:clean(item.name).split(' ').filter(w=>sourceWords.has(w)).length})).filter(x=>x.hits);if(!scored.length)return null;scored.sort((a,b)=>b.hits-a.hits);return scored.length===1||scored[0].hits>scored[1].hits?scored[0].item:null}
  function datesOf(text,fallback){const s=digits(text),matches=s.match(/(?:1[34]\d{2}[\/-]\d{1,2}[\/-]\d{1,2}|\d{1,2}[\/-]\d{1,2}[\/-]1[34]\d{2})/g)||[];return matches.map(raw=>dateInfo(raw,fallback).date)}
  function paymentRecipient(text){
+  text=text.replace(/به\s+عدد\s+/g,'');
   // An explicitly spoken recipient outranks a category stored as a person.
   const stop='بابت|برای|در|پروژه|مبلغ|به مبلغ|به صورت|به شکل|با چک|پرداخت|واریز|دادم|گرفتم|داده|تحویل|دیروز|امروز|پریروز|تومان|تومن|ریال|را|رو';
   const direct=text.match(new RegExp('(?:^|\\s)(?:به|از)\\s+(?:(?:حساب|کارت)\\s+)?(.+?)(?=\\s+(?:'+stop+')(?:\\s|$)|[.،]|$)'));

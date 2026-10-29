@@ -7,7 +7,12 @@ w.PeymanyarStatements={date:s=>/^1[34]\d{2}\/\d{2}\/\d{2}$/.test(s)?s:''};
 for(const f of ['quick-payment.js','live-dictation.js','payment-target-picker.js','intent-router.js'])w.eval(fs.readFileSync(f,'utf8'));
 w.eval('db.projects=[{id:1,name:"حسنوند"}];db.people=[{id:2,name:"محمد مرادی",project:"حسنوند"}];db.transactions=[]');
 const parse=(text,options)=>w.PeymanyarCommand.parse(text,w.eval('db'),'1405/08/07',options);
+for(const [text,amount] of [['مبلغ چهار میلیون تومان',4000000],['مبلغ یک میلیون و پانصد هزار تومان',1500000],['مبلغ دویستوپنج هزار تومان',205000],['مبلغ ششصدوبیست هزار تومن',620000],['مبلغ ۲۴۰ میلیون ریال',24000000],['مبلغ بیست غلط میلیون تومان',0]])assert.equal(w.PeymanyarCommand.amountOf(text),amount,text);
 const examples=[
+'مبلغ بیست وچهار میلیون تومان به حساب محمد مرادی بابت پروژه حسنوند پرداخت شد',
+'مبلغ بیست‌وچهار میلیون تومان به حساب محمد مرادی بابت پروژه حسنوند پرداخت شد',
+'مبلغ بیستوچهار میلیون تومان به حساب محمد مرادی بابت پروژه حسنوند پرداخت شد',
+'مبلغ به عدد بیست و چهار میلیون تومان به حساب محمد مرادی بابت پروژه حسنوند پرداخت شد',
 'مبلغ ۲۴ میلیون تومان به حساب محمد مرادی بابت پروژه حسنوند پرداخت شد',
 'مبلغ بیست و چهار میلیون تومان به حساب محمد مرادی بابت پروژه حسنوند واریز شد',
 'مبلغ ۲۴ میلیون تومان به حساب محمد مرادی بابت پروژه حسنوند',
@@ -18,7 +23,7 @@ for(const text of examples){
  assert.equal(w.v21Plan.intent,'transaction_create');assert.equal(w.v21Plan.amount,24000000);assert.equal(w.document.getElementById('spProject').value,'حسنوند');assert.equal(w.document.getElementById('spParty').value,'محمد مرادی');assert.equal(w.document.getElementById('spKind').value,'expense');assert.equal(w.eval('n("spAmount")'),24000000);
  const blob={test:'original voice'};input._voiceBlob=blob;
  w.useExample('برای پروژه سپیدار بابت کرایه وانت دو میلیون تومان پرداخت کردم');
- assert.equal(input.value,text);assert.equal(input._voiceBlob,blob);assert.equal(w.v21Plan.amount,24000000);assert.equal(w.v21Plan.project,'حسنوند');assert.equal(w.v21Plan.note,text);
+ assert.equal(input.value,text);assert.equal(input._voiceBlob,blob);assert.equal(w.v21Plan.amount,24000000);assert.equal(w.v21Plan.project,'حسنوند');assert.equal(w.v21Plan.note,w.PeymanyarCommand.clean(text));
  w.parseQuick();assert.equal(w.v21Plan.amount,24000000);assert.equal(input.value,text);
  assert.equal(w.eval('db.transactions.length'),0,'analysis never posts money');w.closeUniversalQuick();
 }
