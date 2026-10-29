@@ -18,11 +18,16 @@
   // Speech engines can attach the conjunction to Persian number words.
   const numberWords=Object.keys({...wordValues,...scales}).sort((a,b)=>b.length-a.length).join('|');
   let s=digits(text).replace(/(^|\s)پونصد(?=\s|$)/g,'$1پانصد')
+   // Known transcription spellings retain their multiplier; never read only 24.
+   .replace(/(^|[\s0-9])(?:ملیون|میلیون)(?=\s|تومان|تومن|ریال|$)/g,'$1میلیون')
+   .replace(/(^|[\s0-9])(?:ملیارد|میلیارد)(?=\s|تومان|تومن|ریال|$)/g,'$1میلیارد')
+   .replace(/(میلیون|میلیارد|هزار)(?=تومان|تومن|ریال)/g,'$1 ')
+
    .replace(/(?:مبلغش|مبلغ)\s*[:：]?\s*(?:به\s+عدد\s+|برابر\s+با\s+)?/g,'مبلغ ')
    .replace(/(\d)(?=[آ-ی])/g,'$1 ');
   for(let i=0;i<3;i++)s=s.replace(new RegExp('(^|\\s)('+numberWords+')و(?=(?:'+numberWords+')(?:و|\\s|$))','g'),'$1$2 و ').replace(new RegExp('(^|\\s)و('+numberWords+')(?=\\s|$)','g'),'$1و $2');
 
-  const spoken=spokenAmountInfo(text);if(spoken)return spoken.amount;
+  const spoken=spokenAmountInfo(s);if(spoken)return spoken.amount;
   // Parse the entire amount before currency, including mixed digits and words.
   const amountTokens=s.replace(/(\d)(?=[آ-ی])/g,'$1 ').split(/\s+/).map(w=>w.replace(/[.،؛؟!]$/,''));
   const currencyIndex=amountTokens.findIndex(w=>/^(?:تومان|تومن|ریال)$/.test(w));

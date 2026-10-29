@@ -27,6 +27,15 @@ for(const text of examples){
  w.parseQuick();assert.equal(w.v21Plan.amount,24000000);assert.equal(input.value,text);
  assert.equal(w.eval('db.transactions.length'),0,'analysis never posts money');w.closeUniversalQuick();
 }
+// Exact screenshot transcription: verify both preview and the stored multiplier.
+w.eval('db.projects=[{id:1,name:"خانه حسنوند"}];db.people=[{id:2,name:"آقای حامد مرادی",project:"خانه حسنوند"}];db.transactions=[]');
+for(const amountText of ['24 ملیون تومن','۲۴ ملیون تومان','بیست و چهار ملیون تومن','24ملیونتومن','بیست و چهار میلیون تومان']){
+ const screenshot='مبلغ '+amountText+' به حساب آقای حامد مرادی بابت پروژه خانه حسنوند پرداخت شد.';
+ w.openQuick();w.document.getElementById('quickText').value=screenshot;w.parseQuick();
+ assert.equal(w.v21Plan.amount,24000000,screenshot);assert.equal(w.eval('n("spAmount")'),24000000,screenshot);
+ w.confirmSmartPlan();assert.equal(w.eval('db.transactions.at(-1).amount'),24000000,'stored amount includes million multiplier');
+}
+w.eval('db.projects=[{id:1,name:"حسنوند"}];db.people=[{id:2,name:"محمد مرادی",project:"حسنوند"}];db.transactions=[]');
 // An unrecognized fragment can be classified without fake sample data or lost date/method.
 w.openQuick();let input=w.document.getElementById('quickText');input.value='محمد مرادی پروژه حسنوند ۲۴ میلیون تومان تاریخ ۱۸/۶ با چک';
 w.parseQuick();w.useExample('برای پروژه سپیدار بابت کرایه وانت دو میلیون تومان پرداخت کردم');
