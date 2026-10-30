@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict');
+const {resolve,review}=require('../entity-resolver');
+const db={projects:[{id:1,name:'آرشام'},{id:2,name:'آرشام شمالی'}],people:[{id:10,name:'داوود مرادی'},{id:11,name:'علی مرادی'},{id:12,name:'یاسر نگهبان'}]};
+assert.equal(resolve('مرادی',db.people).status,'ambiguous');
+assert.equal(resolve('مرادی',db.people).candidates.length,2);
+assert.equal(resolve('داوود مرادی',db.people).status,'exact_unconfirmed');
+assert.equal(resolve('حامد مرادی',db.people).status,'new_or_unknown');
+assert.equal(resolve('آرشام',db.projects,'project').candidates[0].id,1);
+assert.equal(resolve('آرشام',db.projects,'project').status,'exact_unconfirmed');
+assert.equal(resolve('آرشام جنوبی',db.projects,'project').status,'new_or_unknown');
+assert.equal(resolve('مرادی',db.people).selected,null);
+assert.equal(review({project:'آرشام',party:'مرادی',amount:0,date:'1405/08/08',db}).canCommit,false);
+assert.equal(review({project:'آرشام',party:'مرادی',amount:25000000,date:'1405/08/08',db}).amount,25000000);
+assert.equal(review({project:'آرشام',party:'مرادی',amount:25000000,date:'',db}).date,null);
+console.log('PASS entity resolver: ambiguity, exact unconfirmed, new person, safe amount/date');
