@@ -45,6 +45,8 @@ function install(){
    if(plan.intent==='transaction_create'&&!money){alert('مبلغ معتبر تشخیص داده نشده؛ ابتدا متن مبلغ را اصلاح و دوباره تحلیل کنید.');return}
    if(plan.intent==='transaction_create'&&!p){alert('پروژه را از فهرست انتخاب کنید.');return}
    let next=corrected;
+   if(p&&projectQuery&&projectQuery!==p)next=next.replace(projectQuery,p);
+   if(person&&personQuery&&personQuery!==person)next=next.replace(personQuery,person);
    if(p&&!next.includes(p))next+=' در پروژه '+p;
    if(person&&!next.includes(person))next+=' به '+person;
    input.value=next;
