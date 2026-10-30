@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {interpret} from '../ai-worker/interpret.mjs';
+const env={GROQ_API_KEY:'test',SUPABASE_URL:'https://auth.test',SUPABASE_ANON_KEY:'test'};
+const body={text:'دو میلیون و پونصد هزار تومان به یاسر بابت نگهبانی پروژه آرشان پرداخت شد',projects:[{id:'1',name:'آرشام'}],people:[{id:'2',name:'یاسر مرادی',role:'نگهبان',projects:['آرشام']}]};
+const model={intent:'transaction_create',kind:'expense',amount_toman:2500000,amount_quote:'دو میلیون و پونصد هزار تومان',project:{id:'1',candidates:[],reason:'آرشان را با آرشام تطبیق دادم'},person:{id:'2',candidates:[]},category:'نگهبانی',questions:[]};
+let calls=0,quota=0;
+const mock=result=>async(url,options)=>{calls++;if(url.endsWith('/user'))return new Response('{}');if(url.includes('/rpc/')){quota++;return new Response('{}')}const payload=JSON.parse(options.body);assert.equal(payload.response_format.type,'json_object');assert.equal(JSON.parse(payload.messages[1].content).people[0].role,'نگهبان');return Response.json({choices:[{message:{content:JSON.stringify(result)}}]})};
+const request=(auth=true)=>new Request('https://worker.test/interpret',{method:'POST',headers:{...(auth?{Authorization:'Bearer test'}:{}),'Content-Type':'application/json'},body:JSON.stringify(body)});
+let r=await interpret(request(),env,'https://app.test',mock(model));assert.equal(r.status,200);assert.equal((await r.json()).amount_toman,2500000);assert.equal(quota,1);
+r=await interpret(request(false),env,'https://app.test',mock(model));assert.equal(r.status,401);assert.equal(quota,1);
+r=await interpret(request(),env,'https://app.test',mock({...model,person:{id:'foreign-account-person'}}));assert.equal(r.status,502);
+r=await interpret(request(),env,'https://app.test',async()=>new Response('{}',{status:403}));assert.equal(r.status,401);
+r=await interpret(request(),{GROQ_API_KEY:'test'},'https://app.test',mock(model));assert.equal(r.status,503);
+console.log('Worker: context, full multiplier, auth, quota and foreign-ID rejection passed');
