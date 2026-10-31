@@ -1,3 +1,4 @@
+import { interpret } from './interpret.mjs';
 const SPEECH_MODEL = "gemini-3.5-transcribe";
 
 const corsHeaders = origin => ({
@@ -216,6 +217,9 @@ export default {
     try {
       if (request.method === "GET" && url.pathname === "/health") {
         return json({ ok: !!env.GEMINI_API_KEY, version: "90-cash-table", cash_table: !!env.GROQ_API_KEY, model: SPEECH_MODEL, language: "fa" }, 200, origin);
+      }
+      if (request.method === "POST" && url.pathname === "/interpret") {
+        return await interpret(request, env, origin);
       }
       if (request.method === "POST" && url.pathname === "/transcribe") {
         return await transcribe(request, env, origin);
