@@ -36,7 +36,9 @@ w.fetch=async(url,opts)=>{assert.ok(url.endsWith('/interpret'));const body=JSON.
  response={...result,person:{id:null,candidates:['2']}};w.openQuick();input=w.document.getElementById('quickText');input.value=raw;await w.parseQuick();
  assert.equal(w.document.getElementById('voiceInterpretationAccept').disabled,true);
  w.document.querySelector('[data-choice="person"]').click();assert.equal(w.document.getElementById('voiceInterpretationAccept').disabled,false);
- const edit=w.document.getElementById('voiceInterpretationText');edit.value='مبلغ جدید';edit.dispatchEvent(new w.Event('input'));assert.equal(w.document.getElementById('voiceInterpretationAccept').disabled,true);w.closeUniversalQuick();
+ const edit=w.document.getElementById('voiceInterpretationText');edit.value='مبلغ جدید';edit.dispatchEvent(new w.Event('input'));assert.equal(w.document.getElementById('voiceInterpretationAccept').disabled,false);assert.ok(w.document.getElementById('voiceInterpretationAccept').textContent.includes('تحلیل متن اصلاح'));
+ response=result;edit.value=raw;edit.dispatchEvent(new w.Event('input'));edit.value=raw+' لطفاً';edit.dispatchEvent(new w.Event('input'));
+ w.document.getElementById('voiceInterpretationAccept').click();await new Promise(resolve=>setTimeout(resolve,20));assert.equal(input.value,raw+' لطفاً');assert.equal(w.document.getElementById('spAmount'),null,'edited text is reviewed before transfer');assert.ok(w.document.getElementById('voiceInterpretationReview'));w.document.getElementById('voiceInterpretationAccept').click();assert.equal(w.eval('n("spAmount")'),2500000);assert.equal(w.eval('db.transactions.length'),0);w.closeUniversalQuick();
  response={...result,person:{id:'not-in-account'}};w.openQuick();input=w.document.getElementById('quickText');input.value=raw;await w.parseQuick();assert.equal(w.document.getElementById('voiceInterpretationAccept'),null);assert.ok(w.document.getElementById('interpretManual'));w.closeUniversalQuick();
  assert.equal(w.eval('db.transactions.length'),0);
  assert.equal(w.PeymanyarVoiceInterpretation.words(24000000),'بیست و چهار میلیون');
