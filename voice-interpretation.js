@@ -3,7 +3,7 @@
 'use strict';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const original=window.parseQuick,change=window.changeCommandIntent;
-let sequence=0,controller=null;
+let sequence=0,controller=null,pending=null;
 const source=()=>typeof db!=='undefined'?db:window.db;
 const id=x=>String(x);
 const norm=s=>PeymanyarCommand.clean(s).replace(/آ/g,'ا');
@@ -29,17 +29,20 @@ window.parseQuick=async function(forced){
  const raw=input.value.trim();if(!raw)return;
  const local=PeymanyarCommand.parse(raw,source(),typeof todayFa==='function'?todayFa():undefined,{intent:forced});
  if(local.intent!=='transaction_create'&&forced!=='transaction_create')return original();
- controller?.abort();controller=new AbortController();const requestController=controller,ticket=++sequence;
+ if(pending?.input===input&&pending.raw===raw)return;
+ controller?.abort();controller=new AbortController();const requestController=controller,ticket=++sequence;pending={input,raw,ticket};
  window.PeymanyarApprovedInterpretation=null;window.v21Plan=null;window.parsedCommand=null;
- const catalog=context(source());
+ let catalog;
  box.innerHTML='<section class="parsed" aria-live="polite"><h3>برداشت از صحبت شما</h3><p role="status">در حال تحلیل مبلغ و تطبیق نام‌ها با پروژه‌ها و افراد شما…</p></section>';
  const fresh=()=>ticket===sequence&&input.isConnected&&input.value.trim()===raw&&document.getElementById('parsedResult')===box;
- const timer=setTimeout(()=>requestController.abort(),50000);
+ let timer;
+ const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{requestController.abort();const error=new Error('analysis_timeout');error.name='AbortError';reject(error)},50000)});
  try{
+  catalog=context(source());
   const endpoint=(localStorage.getItem(AI_ENDPOINT_KEY)||DEFAULT_AI_ENDPOINT).replace(/\/$/,'');
-  const response=await fetch(endpoint+'/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:raw,...catalog}),signal:requestController.signal});
-  const result=await response.json();if(!fresh())return;
-  if(!response.ok)throw Error(result.detail||([404,503].includes(response.status)?'سرویس تحلیل هوشمند هنوز فعال نشده است.':'تحلیل انجام نشد؛ دوباره تلاش کن.'));
+  const {response,result}=await Promise.race([timeout,(async()=>{const response=await fetch(endpoint+'/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:raw,...catalog}),signal:requestController.signal});const result=await response.json().catch(()=>({error:'invalid_server_response'}));return {response,result}})()]);if(!fresh())return;
+  if(!response.ok){const code=String(result.error||'request_failed').replace(/[^a-zA-Z0-9_]/g,'').slice(0,80);throw Error((result.detail||'سرویس تحلیل پاسخ موفق نداد؛ متن شما محفوظ است.')+' ['+response.status+' / '+code+(result.upstream_status?' / '+result.upstream_status:'')+']')}
+  if(!result||typeof result!=='object')throw Error('پاسخ تحلیل معتبر نیست.');
   if(result.intent!=='transaction_create')throw Error('از این متن پرداخت یا دریافت مشخصی تشخیص داده نشد؛ متن را کامل‌تر کن.');
   const entity=(r,rows)=>{if(!r||typeof r!=='object')throw Error('پاسخ تحلیل کامل نیست.');const selected=rows.find(x=>id(x.id)===id(r.id));if(r.id!=null&&!selected)throw Error('نام پیشنهادی در اطلاعات این حساب پیدا نشد.');return {...r,selected,candidates:(r.candidates||[]).map(i=>rows.find(x=>id(x.id)===id(i))).filter(Boolean),newAccepted:false}};
   const p=entity(result.project,catalog.projects),person=entity(result.person,catalog.people);
@@ -72,8 +75,10 @@ window.parseQuick=async function(forced){
    };
   }
   render();
- }catch(error){if(!fresh())return;box.innerHTML=`<section class="parsed"><p role="alert">${esc(error.name==='AbortError'?'پاسخ تحلیل دیر رسید؛ متن و صوت محفوظ است.':error.message)}</p><button type="button" class="btn" id="interpretRetry">تلاش دوباره</button><button type="button" class="btn" id="interpretManual">تکمیل دستی فرم</button></section>`;document.getElementById('interpretRetry').onclick=()=>window.parseQuick(forced);document.getElementById('interpretManual').onclick=()=>{if(fresh())original()}}
- finally{clearTimeout(timer)}
+  if(typeof setVoiceState==='function')setVoiceState('تحلیل آماده است؛ برداشت را پایین بررسی کن.');
+  box.scrollIntoView?.({block:'nearest',behavior:'smooth'});
+ }catch(error){if(!fresh())return;if(typeof setVoiceState==='function')setVoiceState('تحلیل انجام نشد؛ دلیل خطا و گزینه تلاش دوباره پایین نمایش داده شده است.');box.innerHTML=`<section class="parsed"><p role="alert">${esc(error.name==='AbortError'?'پاسخ تحلیل دیر رسید؛ متن و صوت محفوظ است.':error.message)}</p><button type="button" class="btn" id="interpretRetry">تلاش دوباره</button><button type="button" class="btn" id="interpretManual">تکمیل دستی فرم</button></section>`;document.getElementById('interpretRetry').onclick=()=>window.parseQuick(forced);document.getElementById('interpretManual').onclick=()=>{if(fresh())original()}}
+ finally{clearTimeout(timer);if(pending?.ticket===ticket)pending=null}
 };
 document.addEventListener('input',e=>{if(e.target.id==='quickText'){++sequence;controller?.abort();window.PeymanyarApprovedInterpretation=null;const box=document.getElementById('parsedResult');if(box)box.textContent='متن تغییر کرد؛ تحلیل و ادامه را بزن.'}});
 window.changeCommandIntent=function(kind){if(kind==='transaction_create')return window.parseQuick(kind);window.PeymanyarApprovedInterpretation=null;return change?.(kind)};

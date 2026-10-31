@@ -40,5 +40,13 @@ w.fetch=async(url,opts)=>{assert.ok(url.endsWith('/interpret'));const body=JSON.
  response={...result,person:{id:'not-in-account'}};w.openQuick();input=w.document.getElementById('quickText');input.value=raw;await w.parseQuick();assert.equal(w.document.getElementById('voiceInterpretationAccept'),null);assert.ok(w.document.getElementById('interpretManual'));w.closeUniversalQuick();
  assert.equal(w.eval('db.transactions.length'),0);
  assert.equal(w.PeymanyarVoiceInterpretation.words(24000000),'بیست و چهار میلیون');
+ // Failed provider responses must show a useful code and stop the loading state.
+ w.openQuick();input=w.document.getElementById('quickText');input.value=raw;
+ w.fetch=async()=>({ok:false,status:502,json:async()=>({error:'interpretation_upstream_failed',upstream_status:403})});
+ await w.parseQuick();assert.ok(w.document.getElementById('parsedResult').textContent.includes('502 / interpretation_upstream_failed / 403'));assert.ok(w.document.getElementById('interpretRetry'));w.closeUniversalQuick();
+ // A stalled auth wrapper may ignore AbortSignal: the independent deadline still ends the UI wait.
+ const realTimeout=w.setTimeout.bind(w);w.setTimeout=(fn,ms,...args)=>realTimeout(fn,ms===50000?5:ms,...args);
+ w.fetch=()=>new Promise(()=>{});w.openQuick();input=w.document.getElementById('quickText');input.value=raw;
+ await w.parseQuick();assert.ok(w.document.getElementById('interpretRetry'));assert.ok(w.document.getElementById('parsedResult').textContent.includes('دیر رسید'));assert.equal(input.value,raw);w.closeUniversalQuick();
  console.log('UI: prose review, full amount, identity, immutable transcript, ambiguity, model conflict, edited-text invalidation passed');w.close();
 })().catch(e=>{console.error(e);w.close();process.exitCode=1});
