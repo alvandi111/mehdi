@@ -18,5 +18,37 @@ w.openContractorPayment('','',800);assert.equal(d.getElementById('cpPerson').val
 w.openWorkStatement(10);assert.equal(d.getElementById('wsProject').value,'آرشام');d.getElementById('workStatementEditor').remove();w.openContractorPayment(10);assert.equal(d.getElementById('cpProject').value,'آرشام');set('cpAmount','1000000');set('cpDate','1405/07/04');set('cpMethod','cheque');set('cpNumber','۱۲۳');set('cpDue','1405/08/01');w.saveContractorPayment();let chequeId=w.eval('db').transactions.at(-1).id;w.openContractorPayment('','',chequeId);set('cpAmount','1500000');w.saveContractorPayment();assert.equal(w.eval('db').transactions.length,3);assert.equal(api.account(10,'آرشام').balance,4500000);w.openContractorPayment(10,'آرشام');set('cpAmount','1000000');set('cpDate','1405/07/04');set('cpMethod','cheque');set('cpNumber','123');set('cpDue','1405/08/01');w.saveContractorPayment();assert.equal(w.eval('db').transactions.length,3);d.getElementById('contractorPayment').remove();
 w.setContractorCheque(chequeId,'cleared');w.openRecordEditor('transaction',chequeId);assert.ok(d.getElementById('cpAmount').disabled);set('cpAmount','999999999');set('cpNumber','999');w.saveContractorPayment();assert.equal(w.eval('db').transactions.find(t=>t.id===chequeId).amount,1500000);assert.equal(w.eval('db').transactions.find(t=>t.id===chequeId).chequeNumber,'999');assert.equal(api.account(10,'آرشام').balance,4500000);w.openPerson(10);assert.equal(d.querySelectorAll('.statement-payment-list tbody tr').length,2);
 w.openContractorPayment('','',800);set('cpAmount','2000000');const beforeFail=JSON.stringify(w.eval('db')),originalSave=w.save;w.save=()=>{throw Error('quota')};w.saveContractorPayment();assert.equal(JSON.stringify(w.eval('db')),beforeFail);w.save=originalSave;
+// Printing from the editor uses current values without saving or approving them.
+let printed='',previews=0;
+w.openPrintPreview=()=>{previews++;return {document:{write(html){printed=html},close(){}}}};
+w.openWorkStatement('','',700);
+assert.match(d.querySelector('.statement-print-actions').textContent,/چاپ \/ ذخیره PDF/);
+set('wsTitle','صورت‌وضعیت اصلاح‌شده <آزمایش>');
+set('wsNote','خط اول\nخط دوم <script>');
+d.querySelector('#wsItems .ws-quantity').value='۱۲٫۵';
+d.querySelector('#wsItems .ws-rate').value='۲۰۰٬۰۰۰';
+const printSnapshot=JSON.stringify(w.eval('db')),storedSnapshot=w.localStorage.getItem('peymanyar-v1-data');
+w.printWorkStatementEditor();
+assert.equal(previews,1);assert.ok(printed.includes('۲٬۵۰۰٬۰۰۰'));
+assert.ok(printed.includes('صورت‌وضعیت اصلاح‌شده &lt;آزمایش&gt;'));
+assert.ok(printed.includes('خط اول<br>خط دوم &lt;script&gt;'));
+assert.equal(JSON.stringify(w.eval('db')),printSnapshot);
+assert.equal(w.localStorage.getItem('peymanyar-v1-data'),storedSnapshot);
+assert.ok(d.getElementById('workStatementEditor'),'editor remains open after preview');
+d.querySelector('#wsItems .ws-quantity').value='';w.printWorkStatementEditor();assert.equal(previews,1,'invalid rows do not produce a printout');
+d.getElementById('workStatementEditor').remove();
+w.openPerson(10);assert.ok(d.querySelector('.statement-records button[onclick="printWorkStatement(700)"]'));
+w.printWorkStatement(700);assert.equal(previews,2);assert.ok(printed.includes('۱۰٬۰۰۰٬۰۰۰'),'saved record printing remains independent of unsaved edits');
+assert.equal(JSON.stringify(w.eval('db')),printSnapshot);
+// Exercise the real preview shell from the editor, including native print and PDF preparation.
+const previewScript=d.createElement('script');previewScript.textContent=fs.readFileSync(path.join(__dirname,'..','document-preview.js'),'utf8');d.body.append(previewScript);
+w.openWorkStatement('','',700);set('wsTitle','پیش‌نمایش صورت‌وضعیت');
+d.querySelector('.statement-print-actions button').click();
+const preview=d.querySelector('.document-preview');assert.ok(preview);assert.equal(preview.querySelector('[data-save]').textContent,'ذخیره PDF');assert.equal(preview.querySelector('[data-print]').textContent,'چاپ');
+assert.equal(preview.querySelector('iframe').contentDocument.title,'پیش‌نمایش صورت‌وضعیت');
+assert.ok(preview.querySelector('iframe').contentDocument.body.textContent.includes('۱۰٬۰۰۰٬۰۰۰'));
+assert.equal(JSON.stringify(w.eval('db')),printSnapshot);
+console.log('PASS: editor click opens real preview with PDF and print toolbar and full statement total');
+console.log('PASS: visible editor/person print actions; current unsaved values; escaped multiline notes; validation; saved-record printing; no financial or storage writes');
 console.log('PASS: Persian/fractional quantities; draft/approved separation; item math; edit without duplicates; project/person/cutoff scoping; historical payments and refunds; contract not double-counted; cheque deducted once, clearing unchanged, cancelling reverses; rename linkage; reports and deletion');
 console.log('PASS: project/global overview with debts and advances separate; cutoff and CSV; project default; payment edit preserves identity/attachment; cancellation and storage rollback; normalized duplicate cheque guard; settled cheque financial fields locked; payment list');w.close();
